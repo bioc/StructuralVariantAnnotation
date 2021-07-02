@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##INFO=<ID=SVLEN,Number=.,Type=Integer,Description="Difference in length between REF and ALT alleles">
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
+##INFO=<ID=MATEID,Number=.,Type=String,Description="ID of mate breakends">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the structural variant">
+##ALT=<ID=DEL,Description="Deletion">
+##contig=<ID=chr,length=18,sequence="CGTGTtgtagtaCCGTAA">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr	5	sequence	TTGTAGTA	T	.	.	
+chr	5	symbolic	T	<DEL>	.	.	SVTYPE=DEL;SVLEN=-7;END=12
+chr	5	breakpoint1	T	T[chr:13[	.	.	SVTYPE=BND;MATEID=breakpoint2
+chr	13	breakpoint2	C	]chr:5]C	.	.	SVTYPE=BND;MATEID=breakpoint1
+chr	5	breakend	T	T.	.	.	SVTYPE=BND

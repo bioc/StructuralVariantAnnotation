@@ -2,7 +2,6 @@
 #' structural variants
 #' #@export
 #setClass("BreakpointGRanges", contains="GRanges")
-
 #' Partner breakend for each breakend.
 #'
 #' @details
@@ -25,6 +24,27 @@
 partner <- function(gr, selfPartnerSingleBreakends=FALSE) {
   .assertValidBreakpointGRanges(gr, allowSingleBreakends=selfPartnerSingleBreakends)
   return(gr[ifelse(selfPartnerSingleBreakends & is.na(gr$partner), names(gr), gr$partner),])
+}
+#' Determines whether this breakend has a valid partner in this
+#' GRanges
+#'
+#' @param gr GRanges object of SV breakends
+#' @param selfPartnerSingleBreakends treat single breakends as their own partner.
+#' @return True/False for each row in the breakpoint GRanges
+#' @examples
+#' #Subset to chromosome 6 intra-chromosomal events \code{vcf}
+#' vcf.file <- system.file("extdata", "COLO829T.purple.sv.ann.vcf.gz", package = "StructuralVariantAnnotation")
+#' vcf <- VariantAnnotation::readVcf(vcf.file)
+#' gr <- breakpointRanges(vcf)
+#' gr <- gr[seqnames(gr) == "6"]
+#' # We now need to filter out inter-chromosomal events to ensure
+#' # our GRanges doesn't contain any breakpoints whose partner
+#' # has already been filtered out and no longer exists in the GRanges.
+#' gr <- gr[hasPartner(gr)]
+#'@export
+hasPartner <- function(gr, selfPartnerSingleBreakends=FALSE) {
+  return((is.na(gr$partner) & selfPartnerSingleBreakends) |
+    (!is.na(gr$partner) & gr$partner %in% names(gr)))
 }
 
 #' Finding overlapping breakpoints between two breakpoint sets
@@ -512,18 +532,21 @@ breakpointGRangesToVCF <- function(gr, ...) {
 	    verbose = FALSE)
 
 }
-#' Type of simplest explaination of event. Possible types are:
+#' Type of simplest explanation of event. Possible types are:
 #' | Type | Description |
 #' | BND | Single breakend |
 #' | CTX | Interchromosomal translocation |
-#' | INV | Inversion. Note that both ++ and -- breakpoint will be classified as inversion regardless of whether the matching breakpoint actually exists |
+#' | INV | Inversion. |
 #' | DUP | Tandem duplication |
 #' | INS | Insertion |
 #' | DEL | Deletion |
 #' 
+#' Note that both ++ and -- breakpoint will be classified as inversions regardless of whether both breakpoint that consistitute an actual inversion exists or not
+#' 
 #' @param gr breakpoint GRanges object
-#' @param insertionLengthThreshold portion of inserted bases compared to total event size to be classified as an insertion. For example, a 5bp deletion with 5 inserted bases will be classified as an INS event.
-#' @return Type of simplest explaination of event
+#' @param insertionLengthThreshold portion of inserted bases compared to total event size to be classified as an insertion.
+#' For example, a 5bp deletion with 5 inserted bases will be classified as an INS event.
+#' @return Type of simplest explanation of event
 #' @export
 simpleEventType <- function(gr, insertionLengthThreshold=0.5) {
 	if (is.null(gr$partner)) {
@@ -540,7 +563,7 @@ simpleEventType <- function(gr, insertionLengthThreshold=0.5) {
 }
 #' Length of event if interpreted as an isolated breakpoint.
 #' @param gr breakpoint GRanges object
-#' @return Length of the simplest explaination of this breakpoint/breakend.
+#' @return Length of the simplest explanation of this breakpoint/breakend.
 #' @export
 simpleEventLength <- function(gr) {
 	if (is.null(gr$partner)) {
@@ -558,7 +581,7 @@ simpleEventLength <- function(gr) {
 #' sequence, this representational difference is problematic when comparing
 #' variant call sets.
 #' 
-#' WARNING: this method does not yet check that the inserted sequence actually matched the duplicated sequence.
+#' WARNING: this method does not check that the inserted sequence actually matched the duplicated sequence.
 #' @param query a breakpoint GRanges object
 #' @param subject a breakpoint GRanges object
 #' @param maxgap maximum distance between the insertion position and the duplication
@@ -607,4 +630,111 @@ findInsDupOverlaps <- function(query, subject, maxgap=-1L, maxsizedifference=0L)
 	return(data.frame(
 		queryHits=query$ordinal[queryHits(hits)],
 		subjectHits=subject$ordinal[subjectHits(hits)]))
+}
+#' Identifies potential transitive imprecise calls that can be explained by
+#' traversing multiple breakpoints.
+#' 
+#' Transitive calls are imprecise breakpoints or breakpoints with inserted sequence
+#' that can be explained by a sequence of breakpoints.
+#' That is, A-C calls in which additional sequence may be between A and C that
+#' can be explained by A-B-C.
+#' 
+#' @param transitiveGr a breakpoint GRanges object containing imprecise calls
+#' @param subjectGr breakpoints to traverse
+
+#' @param maximumInsertSize
+#' Expected number of bases to traverse imprecise calls.
+#' @param maximumTransitiveBreakpoints
+#' Maximum number of breakpoints to traverse when looking for an explanation of the transitive calls
+#' @param positionalMargin 
+#' Allowable margin of error when matching call positional overlaps.
+#' A non-zero margin allows for matching of breakpoint with imperfect homology.
+#' @param impreciseCalls
+#' Boolean vector of same length as query indicating which query GRanges
+#' are imprecise calls. Defaults to calls with a non-zero interval size
+#' that have no homology.
+#' @param impreciseCalls imprecise calls in `transitiveGr`.
+#' Precise calls are ignored.
+#' 
+#' @param allowImprecise Allow traversal of imprecise calls.
+#' Defaults to FALSE as to prevent spurious results which skip
+#' some breakpoints when traversing multiple breakpoints
+#' E.g. An A-D transitive from an underlying A-B-C-D rearrangement
+#' will include A-B-D and A-C-D results if allowImprecise=TRUE.
+#' 
+#' @return `data.frame` containing the transitive calls traversed
+#' @export
+findTransitiveImpreciseCalls <- function(
+		transitiveGr,
+		subjectGr,
+		maximumInsertSize=700,
+		maximumTransitiveBreakpoints=4,
+		positionalMargin=8,
+		impreciseTransitiveCalls=(transitiveGr$HOMLEN == 0 | is.null(transitiveGr$HOMLEN)) & start(transitiveGr) != end(transitiveGr),
+		impreciseSubjectCalls=(subjectGr$HOMLEN == 0 | is.null(subjectGr$HOMLEN)) & start(subjectGr) != end(subjectGr),
+		allowImprecise=FALSE) {
+	transitiveGr$.isImprecise = impreciseTransitiveCalls
+	transitiveGr = transitiveGr[hasPartner(transitiveGr)]
+	transitiveGr$.isImprecise = transitiveGr$.isImprecise | partner(transitiveGr)$.isImprecise
+	transitiveGr = transitiveGr[transitiveGr$.isImprecise]
+	transitiveGr$ordinal = seq_len(length(transitiveGr))
+	transitiveGr$partnerOrdinal = partner(transitiveGr)$ordinal
+	
+	if (!allowImprecise) {
+		subjectGr = subjectGr[!impreciseSubjectCalls]
+	}
+	subjectGr = subjectGr[hasPartner(subjectGr)]
+	# centre-align subject intervals to simplify the traversal logic
+	start(subjectGr) = (start(subjectGr) + end(subjectGr)) / 2
+	subjectGr$ordinal = seq_len(length(subjectGr))
+	subjectGr$partnerOrdinal = partner(subjectGr)$ordinal
+	if (is.null(subjectGr$insLen)) {
+		warning("insLen field missing for subjectGr. Assuming all breakpoints have no inserted sequence")
+		subjectGr$insLen = 0
+	}
+	subjectGr$insLen = subjectGr$insLen %na% 0
+
+	# transitive breakpoint must occur within the confidence interval bounds
+	terminal_matches = as.data.frame(GenomicRanges::findOverlaps(transitiveGr, subjectGr, maxgap=positionalMargin, ignore.strand=FALSE)) %>%
+		dplyr::select(
+			terminalStartOrdinal=queryHits,
+			transitiveOrdinal=subjectHits) %>%
+		dplyr::mutate(
+			terminalEndOrdinal=transitiveGr$partnerOrdinal[terminalStartOrdinal])
+	current_traversals = dplyr::inner_join(terminal_matches, terminal_matches, by=c("terminalStartOrdinal"="terminalEndOrdinal"), suffix=c(".start", ".end")) %>%
+		dplyr::select(
+			terminalStartOrdinal,
+			currentTraverseOrdinal=transitiveOrdinal.start,
+			endingTraverseOrdinal=transitiveOrdinal.end,
+			terminalEndOrdinal) %>%
+		dplyr::mutate(
+			distance=subjectGr$insLen[currentTraverseOrdinal],
+			ordinalsTraversed=paste0("\t", currentTraverseOrdinal, "\t"),
+			ordinalsTraversedDistances=paste0("\t", distance, "\t"),
+			ordinalsTraversedBreakpoints=1) %>%
+		dplr::filter(ordinalsTraversedDistances <= maximumInsertSize)
+	# TODO: populate result df with 
+	is_immediately_terminal = current_traversals$endingTraverseOrdinal == subjectGr$partnerOrdinal[current_traversals$currentTraverseOrdinal]
+	resultdf = current_traversals[is_immediately_terminal]
+	current_traversals = current_traversals[!is_immediately_terminal]
+
+	# traversable segments
+	traversable_segments = as.data.frame(GenomicRanges::findOverlaps(transitiveGr, subjectGr, maxgap=maximumInsertSize, ignore.strand=TRUE)) %>%
+		dplyr::filter(as.logical(strand(gr)[queryHits] != strand(gr)[subjectHits])) %>%
+		dplyr::mutate(
+			segmentLength=abs(start(gr)[queryHits] - start(gr)[subjectHits])) %>%
+		dplyr::select(
+			segmentStartInternalOrdinal=queryHits,
+			segmentEndInternalOrdinal=subjectHits,
+			segmentLength) %>%
+		dplyr::mutate(
+			segmentStartExternalOrdinal=subjectGr$partnerOrdinal[segmentStartInternalOrdinal],
+			segmentStartExternalOrdinal=subjectGr$partnerOrdinal[segmentEndInternalOrdinal])
+	
+	# now we traverse
+	while (nrow(current_traversals) > 0) {
+		# TODO do we need to deny looping?
+	}
+	# transform results into long form
+	return(longresultdf)
 }

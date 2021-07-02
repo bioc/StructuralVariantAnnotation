@@ -3,6 +3,7 @@ example <- readVcf(.testfile("vcf4.2.example.sv.vcf"), "")
 simple <- readVcf(.testfile("simple.vcf"), "")
 breakend <- readVcf(.testfile("breakend.vcf"), "")
 multipleAlleles <- readVcf(.testfile("multipleAltSVs.vcf"), "")
+representations <- readVcf(.testfile("representations.vcf"))
 
 
 breakdancer <- readVcf(.testfile("breakdancer-1.4.5.vcf"), "")
@@ -368,6 +369,22 @@ test_that("breakpointRanges(inferMissingBreakends=TRUE) should add missing break
 	expect_equal(4, length(gr))
 	expect_equal(c(18992158, 84963533, 84350, 4886681), start(gr))
 	expect_equal(c("+", "-"), as.character(strand(gr))[1:2])
+})
+
+# CGTGTtgtagtaCCGTAA
+#      -------       7bp del
+# 0        1
+# 123456789012345678
+
+# Important symbolic allele info from the VCF specifications:
+# 
+# 1.6.1.4 If any of the ALT alleles is a symbolic allele (an angle-bracketed ID String “<ID>”) then the padding base is required and POS denotes the coordinate of the base preceding the polymorphism. 
+# 1.6.1.8 End reference position (1-based), indicating the variant spans positions POS–END on reference/contig CHROM. Normally this is the position of the last base in the REF allele
+test_that("representations are equivalent", {
+    bpgr = breakpointRanges(representations)
+    expect_equal(rep(-7, 6), bpgr$svlen == -7)
+    expect_equal(rep(c(5, 13), 3), start(bpgr))
+    expect_equal(rep(c(5, 13), 3), end(bpgr))
 })
 
 
