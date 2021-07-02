@@ -22,7 +22,9 @@ knitr::opts_chunk$set(#echo = TRUE,
 ```
 
 ## Introduction
-This vignette outlines a workflow of parsing and plotting structural variants from Variant Call Format (VCF) using the `StructuralVariantAnnotation` package. `StructuralVariantAnnotation` contains useful helper functions for reading and interpreting structural variant calls. The package contains functions for parsing VCFs from a number of popular callers, dealing with breakpoints involving two separate genomic loci encoded as `GRanges` objects, as well as identifying various biological phenomena. Currently the identification of retroposed transcripts (RTs) and nuclear mitochondrial integrations (NUMTs) are supported.
+This vignette outlines parsing and annotation of structural variants from Variant Call Format (VCF) using the `StructuralVariantAnnotation` package.
+`StructuralVariantAnnotation` contains useful helper functions for reading, comparing, and interpreting structural variant calls.
+`StructuralVariantAnnotation` The package contains functions for parsing VCFs from a number of popular callers, dealing with breakpoints involving two separate genomic loci encoded as `GRanges` objects, as well as identifying various biological phenomena.
 
 ## Installation
 
@@ -33,50 +35,131 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 BiocManager::install("StructuralVariantAnnotation")
 ```
+library(StructuralVariantAnnotation)
+```
 
-## Breakpoint notation
-The [VCF standard](https://samtools.github.io/hts-specs/VCFv4.3.pdf) describes two types of SV notations. One is by SV types, i.e. insertions, deletions, inversions, translocations, etc. The other is by breakend notations, often labelled with `SVTYPE=BND`. To describe a SV with breakend notations, each SV has two positions, each captured by one breakend (except for inversions, which have 4 separate records). Each breakend includes a genomic locus, as well as a half interval extending out to the partner breakend. In VCF BND notations, the `ALT` field encodes directional information of the partner breakend.
+## Representing structural variants in VCF
 
-* 1	200	.	N	N[5:500[	partner breakend immediately after chr1:200, starting from chr5:500 and extending rightwards
-* 1	200	.	N	]5:500]N	partner breakend immediately before chr1:200, extending from the left and ending at chr5:500
-* 1	200	.	N	[5:500[N	partner breakend immediately before chr1:200, starting from chr5:500 and extending rightwards
-* 1	200	.	N	N]5:500]	partner breakend immediately after chr1:200, extending from the left and ending at chr5:500
+The [VCF standard](https://samtools.github.io/hts-specs/VCFv4.3.pdf) allows for four different structural variant notations.
+Here, we shall us a simple deletion as an example of the available notations:
+
+```
+CGTGTtgtagtaCCGTAA  chr sequence
+     -------        deleted bases
+```
+
+- Direct sequence notation
+
+```
+chr	5	sequence	TTGTAGTA	T	.	.	
+```
+
+This is the format that most users will be familar with.
+It is the format used for small insertions and deletions.
+Unfortunately, it does not scale well to large events since both the `REF` and `ALT` sequences must be specified in full.
+For this reason, most structural variant callers will report events in a different notation.
+
+- Symbolic notation
+
+```
+chr	5	symbolic	T	<DEL>	.	.	SVTYPE=DEL;SVLEN=-7;END=12
+```
+
+In symbolic notation, the `ALT` is replaced with a special symbolic allele,
+optionally with a sub-type (e.g. `<DEL:ME>` for a deletion known to be a mobile element deletion).
+The size of the event is determined via the `SVLEN` and `END` fields.
+The VCF specifications recognises `<DEL>`, `<DUP>`, `<INS>`, `<INV>`, and `<CNV>` as top-level symoblic structural variant alleles with all other values taking on non-standard implementation-defined meaning.
+
+There are two problems with this representation.
+Firstly, it is ambiguous whether a caller reporting an event is making a breakpoint claim, a copy number change, or both.
+Secondly, this notation does not allow inter-chromosomal events to be represented.
+These require yet another notation
+
+- Breakend notation
+
+```
+chr	5	breakpoint1	T	T[chr:13[	.	.	SVTYPE=BND;MATEID=breakpoint2
+chr	13	breakpoint2	C	]chr:5]C	.	.	SVTYPE=BND;MATEID=breakpoint1
+```
+
+In this notation, a breakpoint is represented by a pair of breakend records, each containing the location of the two breakends and linked by their `ID` using the `MATEID` `INFO` field.
+Arbitrary rearrangements can be represented using breakend notation, including special-case syntax to represent the termination of a chromosome.
+
+
+Finally, the VCF specifications support one additional notation for structural variants: single breakends.
+
+- Single breakend notation
+
+```
+chr	5	breakend	T	T.	.	.	SVTYPE=BND
+```
+
+Single breakends are breakpoints in which only one side can be unambiguously determined.
+This can be due to one breakend being unable to be uniquely placed (e.g. a breakpoint into centromeric sequence),
+or due to the sequence of one side being novel with respect to the reference (e.g. a viral integration breakpoint).
+
 
 ## Using GRanges for structural variants: a breakend-centric data structure
 
-Unlike breakpoint-centric data structures such as the `Pairs` object that `rtracklayer` uses to load BEDPE files, this package uses a breakend-centric notation. Breakends are stored in a GRanges object with strand used to indicate breakpoint orientation. Consistent with how breakends are encoded in VCF `+` indicates that the breakpoint occurs immediately after the given position, with `-` indicating the breakpoint occurs immediately before the given position. Breakpoints are represented using a `partner` field containing the name of the breakend at the other side of the breakend. Both single breakends and breakpoints are supported but many-to-many breakend partner mappings supported by the VCF `MATEID` field are not: each breakend must have 0 (single breakend) or 1 (breakpoint) partner breakends.
+Unlike breakpoint-centric data structures such as the `Pairs` object that `rtracklayer` uses to load BEDPE files, this package uses a breakend-centric notation.
+Breakends are stored in a GRanges object with strand used to indicate orientation and is consistent with VCF breakend notation.
+The position in the GRanges indicates the position of the base immediately adjacent to the breakpoint.
+`+` indicates that the breakpoint orientation is "forward" the derivative chromosome consists of the bases at and before the break position.
+`-` indicates that the breakpoint orientation is "backwards" the derivative chromosome consists of the bases at and after the break position.
+Breakpoints are represented using the `partner` field.
+The `partner` field contains the GRanges row name of the breakend at the other side of the breakpoint.
+Single breakends have an `NA` `partner` since the other side is unknown.
 
-This notation was chosen as it simplifies many common operations, and annotations are breakend-level annotations. These include annotation associated with genomic positions (e.g. genes, repeats, mappability), as well as breakend-level attributes of a breakpoint such as variant allele fractions (e.g. a structural variant can be homozygous at one breakend, but heterzygous at the other breakend).
+This notation has a number of advantages over other repentation formations.
+Firstly, it allows both breakpoints and single breakends to be represented in a single data structure.
+Secondly, it simplifies annotation as most genomic annotations are for a genomic position, or a contiguous genomic region (e.g. genes, introns, exons, repeats, mappability).
+Finally, it provides a unified representation format regardless of the format used to represent the variant.
 
-## Workflow
-### Loading data from VCF
+Using our previous example, we can see that the direct sequence and symbolic representations require multiple rows to represent:
+```{r samplevariant,warning=FALSE, message=FALSE}
+library(StructuralVariantAnnotation)
+vcf <- VariantAnnotation::readVcf(system.file("extdata", "representations.vcf", package = "StructuralVariantAnnotation"))
+gr <- c(breakpointRanges(vcf), breakendRanges(vcf))
+gr
+```
 
-VCF data is parsed into a `VCF` object using the `readVCF` function from the
-Bioconductor package `VariantAnnotation`. Simple filters could be applied to a 
-`VCF` object to remove unwanted calls. More information about `VCF` objects can be found by
-consulting the vignettes in the VariantAnnotation package with `browseVignettes("VariantAnnotation")`.
+These rows are linked backed to their originating VCF row through the `sourceId` field.
+All 3 breakpoint notations are identical when represented using the StructuralVariantAnnotation GRanges breakpoint notation.
 
-StructuralVariantAnnotation supports structural variants reported in the following VCF notations:
+## Loading data from VCF
 
-* Non-symbolic allele
-* Symbolic allele with `SVTYPE` of `DEL`, `INS`, and `DUP`.
-* Breakpoint notation `SVTYPE=BND`
-* Single breakend notation
+StructuralVariantAnnotation is built on top of the Bioconductor package `VariantAnnotation`.
+VCF files are loaded using `VariantAnnotation::readVcf`, and converted to breakpoint GRanges notation using `breakpointRanges`
+Any non-structural variants such as single nucleotide variants in a VCF will be silently ignored by StructuralVariantAnnotation.
+More information about `VCF` objects can be found by consulting the vignettes in the VariantAnnotation package with `browseVignettes("VariantAnnotation")`.
 
-In addition to parsing spec-compliant VCFs, additional logic has been added to enable parsing of non-compliant variants for the following callers:
+### Non-compliant VCFs
 
-* Pindel (`SVTYPE=RPL`)
-* manta (`INv3`, `INV5` fields)
-* Delly (`SVTYPE=TRA`, `CHR2`, `CT` fields)
-* TIGRA (`SVTYPE=CTX`)
+StructuralVariantAnnotation has additional parsing logic to enable reading VCF from popular callers that do not conform to VCF specifications.
+Specically, StructuralVariantAnnotation supports the following:
 
-Breakpoint ambiguity reported using the spec-defined `CIPOS` is, by default, incorporated into the GRanges breakend intervals.
+- `SVTYPE=RPL`. Used by Pindel to represent deletion-with-insertion events.
+- `INV3`, `INV5`. Used Manta and DELLY to indicate that an `<INV>` inversion call only includes one of the breakpoints required for an actual inversion.
+- `SVTYPE=TRA`/`CHR2`/`CT` Used by DELLY (and others) to indicate an inter-chromosomal breakpoint.
+- `SVTYPE=CTX`. BreakDancer-style notation used by TIGRA to indicate an inter-chromosomal breakpoint.
+
+## Ambiguous breakpoint positions
+
+A structural variant call can be ambiguous for one of two reasons.
+Firstly, a discordant read pair or read depth based caller can make `IMPRECISE` call as the caller itself is unsure of the breakpoint position.
+Second, homology at the breakpoint can result (See [Section 5.4.8 of the VCF version 4.3 specifications](https://samtools.github.io/hts-specs/VCFv4.3.pdf#page=22)) in multiple possible breakpoint positions resulting in identical sequence.
+This ambiguity is intrinsic to the call itself.
+
+StructuralVariantAnnotation incorporates both forms of ambiguity using both `CIPOS` and `HOMPOS` VCF fields into the GRanges breakend intervals.
+Breakend with ambiguity will have their `start` and `end` positions.
+
+These breakpoint positional ambiguity bounds can be removed by specifying `nominalPosition=FALSE` when calling `breakpointRanges`.
+
+## Creating a breakpoint GRanges object
 
 ```{r input, warning=FALSE, message=FALSE}
-suppressPackageStartupMessages(require(StructuralVariantAnnotation))
-suppressPackageStartupMessages(require(VariantAnnotation))
-vcf.file <- system.file("extdata", "gridss.vcf", package = "StructuralVariantAnnotation")
-vcf <- VariantAnnotation::readVcf(vcf.file, "hg19")
+library(StructuralVariantAnnotation))
+vcf <- VariantAnnotation::readVcf(system.file("extdata", "gridss.vcf", package = "StructuralVariantAnnotation"))
 gr <- breakpointRanges(vcf)
 ```
 
@@ -99,13 +182,15 @@ colo829_gr[seqnames(colo829_gr) == "6"]
 
 ### Ensuring breakpoint consistency
 
-Functions such as `findBreakpointOverlaps()` require the `GRanges` object to be composed entirely of valid breakpoints. Subsetting a breakpoint `GRanges` object can result in one side of a breakpoint getting filtered with the remaining orphaned record no longer valid as its partner no longer exists. Such record can be filtered
+Functions such as `findBreakpointOverlaps()` require the `GRanges` object to be consistent.
+Subsetting a breakpoint `GRanges` object can result in one side of a breakpoint getting filtered with the remaining orphaned record no longer valid as its partner no longer exists.
+Such records need to be be filtered
 
 ```{r}
 colo828_chr6_breakpoints <- colo829_gr[seqnames(colo829_gr) == "6"]
 # A call to findBreakpointOverlaps(colo828_chr6_breakpoints, colo828_chr6_breakpoints)
 # will fail as there are a) single breakends, and b) breakpoints with missing partners
-colo828_chr6_breakpoints <- colo828_chr6_breakpoints[colo828_chr6_breakpoints$partner %in% names(colo828_chr6_breakpoints)]
+colo828_chr6_breakpoints <- colo828_chr6_breakpoints[hasPartner(colo828_chr6_breakpoints)]
 # As expected, each call on chr6 only overlaps with itself
 countBreakpointOverlaps(colo828_chr6_breakpoints, colo828_chr6_breakpoints)
 ```
@@ -122,7 +207,9 @@ head(colo828_chr6_breakpoints, 1)
 
 ### Breakpoint Overlaps
 
-`findBreakpointOverlaps()` and `countBreakpointOverlaps()` are functions for finding and counting overlaps between breakpoint objects. All breakends must have their partner breakend included in the GRanges. A valid overlap requires that breakends on boths sides overlap.
+`findBreakpointOverlaps()` and `countBreakpointOverlaps()` are functions for finding and counting overlaps between breakpoint objects.
+All breakends must have their partner breakend included in the GRanges.
+A valid overlap requires that breakends on boths sides overlap.
 
 To demonstrate the `countBreakpointOverlaps()` function, we use a small subset of data from our structural variant caller benchmarking paper to construct precision recall curves for a pair of callers.
 ```{r}
@@ -184,55 +271,26 @@ ggplot(as.data.frame(svgr) %>%
 
 ### Converting between BEDPE, Pairs, and breakpoint GRanges
 
-The package supports converting GRanges objects to BEDPE files. The BEDPE format is defined by [`bedtools`](https://bedtools.readthedocs.io/en/latest/content/general-usage.html). This is achieved using `breakpointgr2pairs` and `pairs2breakpointgr` functions to convert to and from the GRanges `Pairs` notation used by `rtracklayer`.
+The package supports converting GRanges objects to BEDPE files.
+The BEDPE format is defined by [`bedtools`](https://bedtools.readthedocs.io/en/latest/content/general-usage.html).
+This is achieved using `breakpointgr2pairs` and `pairs2breakpointgr` functions to convert to and from the GRanges `Pairs` notation used by `rtracklayer`.
 
 ```{r}
 suppressPackageStartupMessages(require(rtracklayer))
 # Export to BEDPE
-rtracklayer::export(breakpointgr2pairs(gr), con="gridss.bedpe")
+rtracklayer::export(breakpointgr2pairs(gr), con="example.bedpe")
 
 # Import to BEDPE
-bedpe.gr  <- pairs2breakpointgr(rtracklayer::import("gridss.bedpe"))
+bedpe.gr  <- pairs2breakpointgr(rtracklayer::import("example.bedpe"))
 
-```
-
-### Identifying Retrotransposed Transcripts
-The package provides `rtDetect` to identify RTs using the provided SV calls. This is achieved by detecting intronic deletions, which are breakpoints at exon-intron (and intron-exon) boundaries of a transcript. Fusions consisting of an exon boundary and a second genomic location are reported as potential insertion sites. Due to the complexity of RT events, insertion sites can be discovered on both left and right sides, only one side, or none at all.
-
-The output is a `GRangesList` object consisting of two sets of `GRanges` calls, `insSite` and `rt`, containing candidate insertion sites and exon-exon junctions respectively. Candidate insertion sites are annotated by the source transcripts and whether exon-exon junctions are detected for the source transcripts. RT junction breakends are annotated by the UCSC exon IDs, corresponding transcripts, and NCBI gene symbols.
-
-```{r}
-suppressPackageStartupMessages(require(TxDb.Hsapiens.UCSC.hg19.knownGene))
-hg19.genes <- TxDb.Hsapiens.UCSC.hg19.knownGene
-RT_vcf <- readVcf(system.file("extdata", "diploidSV.vcf", package = "StructuralVariantAnnotation"))
-RT_gr <- breakpointRanges(RT_vcf, nominalPosition=TRUE)
-RT <- rtDetect(RT_gr, hg19.genes, maxgap=50, minscore=0.3)
-```
-```{r}
-head(RT$insSite)
-```
-```{r}
-head(RT$rt)
-```
-
-### Identifying Nuclear-mitochondrial Genome Fusion Events
-Function `numtDetect` searches for NUMT events by identifying breakends supporting the fusion of nuclear chromosome and mitochondrial genome. `numtDetect` allow insertion sites with a single-sided junction due to frequent combinations with other structural rearrangements. Candidate linked nuclear insertion sites are reported using SV IDs in the `candidatePartnerId` metadata column.
-
-```{r}
-NUMT_vcf <- readVcf(system.file("extdata", "MT.vcf", package = "StructuralVariantAnnotation"))
-NUMT_gr <- breakpointRanges(NUMT_vcf, nominalPosition=TRUE)
-NUMT <- numtDetect(NUMT_gr)
-NUMT
 ```
 
 ## Visualising breakpoint pairs via circos plots
 
-One way of visualising paired breakpoints is by circos plots. Here we use the package
-[`circlize`](https://doi.org/10.1093/bioinformatics/btu393) to demonstrate 
-breakpoint visualisation. The `bedpe2circos` function takes BEDPE-formatted 
-dataframes (see `breakpointgr2bedpe()`) and plotting parameters for the
-`circos.initializeWithIdeogram()` and `circos.genomicLink()` functions 
-from `circlize`.
+One way of visualising paired breakpoints is by circos plots.
+Here we use the package [`circlize`](https://doi.org/10.1093/bioinformatics/btu393) to demonstrate 
+breakpoint visualisation.
+The `bedpe2circos` function takes BEDPE-formatted dataframes (see `breakpointgr2bedpe()`) and plotting parameters for the `circos.initializeWithIdeogram()` and `circos.genomicLink()` functions from `circlize`.
 
 To generate a simple circos plot of paired breakpoints:
 ```{r}
@@ -245,14 +303,10 @@ circos.genomicLink(as.data.frame(S4Vectors::first(pairs)), as.data.frame(S4Vecto
 circos.clear()
 ```
 
-Alternatively, the plotting package `ggbio` provides flexible track
-functions which bind
-with `ggplot2` objects. It takes `GRanges` objects as input and supports circos
-plots.
-To plot structural variant breakpoints in a circos plot using `ggbio`, we need
-to first prepare the breakpoint GRanges. The function requires a special column,
-indicating the end of the link using GRanges format, which we can add to `gr` using
-[`plyranges`](https://bioconductor.org/packages/release/bioc/html/plyranges.html).
+Alternatively, the plotting package `ggbio` provides flexible track functions which bind with `ggplot2` objects.
+It takes `GRanges` objects as input and supports circos plots.
+To plot structural variant breakpoints in a circos plot using `ggbio`, we need to first prepare the breakpoint GRanges.
+The function requires a special column, indicating the end of the link using GRanges format.
 ```{r add to.gr}
 suppressPackageStartupMessages(require(ggbio))
 gr.circos <- colo829_bpgr[seqnames(colo829_bpgr) %in% seqlevels(biovizBase::hg19sub)]
