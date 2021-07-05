@@ -662,7 +662,13 @@ findInsDupOverlaps <- function(query, subject, maxgap=-1L, maxsizedifference=0L)
 #' E.g. An A-D transitive from an underlying A-B-C-D rearrangement
 #' will include A-B-D and A-C-D results if allowImprecise=TRUE.
 #' 
-#' @return `data.frame` containing the transitive calls traversed
+#' @return `data.frame` containing the transitive calls traversed with the following columns:
+#' | column | meaning | 
+#' | ------ | ------- | 
+#' | transitive_breakpoint_name | Name of the transitive breakpoint a path was found for |
+#' | total_distance | Total length (in bp) of the path |
+#' | traversed_breakpoint_names | List of names of breakpoint traversed in the path |
+#' | distance_to_traversed_breakpoint | List of distances from start of path to end of traversing breakpoint |
 #' @export
 findTransitiveImpreciseCalls <- function(
 		transitiveGr,
@@ -679,21 +685,19 @@ findTransitiveImpreciseCalls <- function(
 	transitiveGr = transitiveGr[transitiveGr$.isImprecise]
 	transitiveGr$ordinal = seq_len(length(transitiveGr))
 	transitiveGr$partnerOrdinal = partner(transitiveGr)$ordinal
-	
 	if (!allowImprecise) {
 		subjectGr = subjectGr[!impreciseSubjectCalls]
 	}
 	subjectGr = subjectGr[hasPartner(subjectGr)]
 	# centre-align subject intervals to simplify the traversal logic
 	start(subjectGr) = (start(subjectGr) + end(subjectGr)) / 2
-	subjectGr$ordinal = seq_len(length(subjectGr))
-	subjectGr$partnerOrdinal = partner(subjectGr)$ordinal
 	if (is.null(subjectGr$insLen)) {
-		warning("insLen field missing for subjectGr. Assuming all breakpoints have no inserted sequence")
+		warning("insLen field missing. Assuming all breakpoints have no inserted sequence")
 		subjectGr$insLen = 0
 	}
 	subjectGr$insLen = subjectGr$insLen %na% 0
-
+	subjectGr$ordinal = seq_len(length(subjectGr))
+	subjectGr$partnerOrdinal = partner(subjectGr)$ordinal
 	# transitive breakpoint must occur within the confidence interval bounds
 	terminal_matches = as.data.frame(GenomicRanges::findOverlaps(transitiveGr, subjectGr, maxgap=positionalMargin, ignore.strand=FALSE)) %>%
 		dplyr::select(
@@ -704,37 +708,95 @@ findTransitiveImpreciseCalls <- function(
 	current_traversals = dplyr::inner_join(terminal_matches, terminal_matches, by=c("terminalStartOrdinal"="terminalEndOrdinal"), suffix=c(".start", ".end")) %>%
 		dplyr::select(
 			terminalStartOrdinal,
-			currentTraverseOrdinal=transitiveOrdinal.start,
-			endingTraverseOrdinal=transitiveOrdinal.end,
+			currentTraverseInOrdinal=transitiveOrdinal.start,
+			endingTraverseOutOrdinal=transitiveOrdinal.end,
 			terminalEndOrdinal) %>%
 		dplyr::mutate(
-			distance=subjectGr$insLen[currentTraverseOrdinal],
-			ordinalsTraversed=paste0("\t", currentTraverseOrdinal, "\t"),
-			ordinalsTraversedDistances=paste0("\t", distance, "\t"),
-			ordinalsTraversedBreakpoints=1) %>%
-		dplr::filter(ordinalsTraversedDistances <= maximumInsertSize)
-	# TODO: populate result df with 
-	is_immediately_terminal = current_traversals$endingTraverseOrdinal == subjectGr$partnerOrdinal[current_traversals$currentTraverseOrdinal]
-	resultdf = current_traversals[is_immediately_terminal]
-	current_traversals = current_traversals[!is_immediately_terminal]
+			currentTraverseOutOrdinal=subjectGr$partnerOrdinal[currentTraverseInOrdinal],
+			distance=subjectGr$insLen[currentTraverseInOrdinal],
+			# TAB is used as a placeholder as it's a disallowed character in VCF and causes a parsing error in BEDPE
+			breakpointsTraversed=paste0(names(subjectGr)[currentTraverseInOrdinal], "	"),
+			traversedDistances=paste0(distance, "	"),
+			traversedBreakpoints=1)
 
-	# traversable segments
-	traversable_segments = as.data.frame(GenomicRanges::findOverlaps(transitiveGr, subjectGr, maxgap=maximumInsertSize, ignore.strand=TRUE)) %>%
-		dplyr::filter(as.logical(strand(gr)[queryHits] != strand(gr)[subjectHits])) %>%
-		dplyr::mutate(
-			segmentLength=abs(start(gr)[queryHits] - start(gr)[subjectHits])) %>%
-		dplyr::select(
-			segmentStartInternalOrdinal=queryHits,
-			segmentEndInternalOrdinal=subjectHits,
-			segmentLength) %>%
-		dplyr::mutate(
-			segmentStartExternalOrdinal=subjectGr$partnerOrdinal[segmentStartInternalOrdinal],
-			segmentStartExternalOrdinal=subjectGr$partnerOrdinal[segmentEndInternalOrdinal])
-	
-	# now we traverse
-	while (nrow(current_traversals) > 0) {
-		# TODO do we need to deny looping?
+	resultdf = data.frame(
+		terminalStartOrdinal=integer(0),
+		currentTraverseInOrdinal=integer(0),
+		endingTraverseOutOrdinal=integer(0),
+		terminalEndOrdinal=integer(0),
+		currentTraverseOutOrdinal=integer(0),
+		distance=integer(0),
+		ordinalsTraversed=character(0),
+		traversedDistances=character(0),
+		traversedBreakpoints=integer(0))
+	if (nrow(current_traversals > 0)) {
+		traversable_segments = .traversable_segments(subjectGr, maximumInsertSize)
+		# now we traverse
+		while (nrow(current_traversals) > 0) {
+			# Terminal paths
+			current_traversals = current_traversals %>%
+				dplyr::filter(distance <= maximumInsertSize & traversedBreakpoints <= maximumTransitiveBreakpoints) %>%
+				dplyr::mutate(is_complete_path=currentTraverseOutOrdinal == endingTraverseOutOrdinal)
+			resultdf = bind_rows(resultdf, current_traversals %>% filter(is_complete_path))
+			# traverse
+			current_traversals = current_traversals %>%
+				filter(!is_complete_path) %>%
+				inner_join(traversable_segments, by=c("currentTraverseInOrdinal"="segmentStartExternalOrdinal")) %>%
+				dplyr::mutate(
+					currentTraverseInOrdinal=segmentEndInternalOrdinal,
+					currentTraverseOutOrdinal=segmentEndExternalOrdinal,
+					distance=distance + segmentLength + segmentEndAdditionalLength,
+					traversedBreakpoints=traversedBreakpoints + 1,
+					traversedDistances=paste0(traversedDistances, distance, "	"),
+					breakpointsTraversed=paste0(breakpointsTraversed, names(subjectGr)[segmentEndInternalOrdinal], "	")) %>%
+				dplyr::select(
+					-segmentStartInternalOrdinal,
+					-segmentLength,
+					-segmentEndInternalOrdinal,
+					-segmentEndExternalOrdinal,
+					-segmentStartAdditionalLength,
+					-segmentEndAdditionalLength)
+		}
 	}
 	# transform results into long form
-	return(longresultdf)
+	resultdf = resultdf %>% 
+		dplyr::mutate(
+			transitive_breakpoint_name=names(transitiveGr)[terminalStartOrdinal],
+			total_distance=as.integer(distance),
+			# trim trailing tab
+			traversed_breakpoint_names=stringr::str_sub(breakpointsTraversed, end=stringr::str_length(breakpointsTraversed) - 1),
+			distance_to_traversed_breakpoint=stringr::str_sub(traversedDistances, end=stringr::str_length(traversedDistances) - 1)) %>%
+		dplyr::select(
+			transitive_breakpoint_name,
+			total_distance,
+			traversed_breakpoint_names,
+			distance_to_traversed_breakpoint) %>%
+		as.data.frame() %>%
+		DataFrame()
+	resultdf$traversed_breakpoint_names = CharacterList(stringr::str_split(resultdf$traversed_breakpoint_names, stringr::fixed("	")))
+	resultdf$distance_to_traversed_breakpoint = IntegerList(stringr::str_split(resultdf$distance_to_traversed_breakpoint, stringr::fixed("	")))
+	return(resultdf)
+}
+.traversable_segments = function(gr, maxgap) {
+	as.data.frame(GenomicRanges::findOverlaps(gr, gr, maxgap=maxgap, ignore.strand=TRUE)) %>%
+		dplyr::filter(
+			(as.logical(strand(gr)[queryHits] == "-") & as.logical(strand(gr)[subjectHits] == "+") & start(gr)[queryHits] <= start(gr)[subjectHits]) |
+				(as.logical(strand(gr)[queryHits] == "+") & as.logical(strand(gr)[subjectHits] == "-") & start(gr)[queryHits] >= start(gr)[subjectHits])) %>%
+		dplyr::select(
+			segmentStartInternalOrdinal=queryHits,
+			segmentEndInternalOrdinal=subjectHits) %>%
+		dplyr::mutate(
+			segmentStartExternalOrdinal=gr$partnerOrdinal[segmentStartInternalOrdinal],
+			segmentEndExternalOrdinal=gr$partnerOrdinal[segmentEndInternalOrdinal],
+			segmentLength=1 + abs(start(gr)[segmentStartInternalOrdinal] - start(gr)[segmentEndInternalOrdinal]),
+			segmentStartAdditionalLength=gr$insLen[segmentStartInternalOrdinal],
+			segmentEndAdditionalLength=gr$insLen[segmentEndInternalOrdinal]) %>%
+		dplyr::select(
+			segmentStartExternalOrdinal,
+			segmentStartInternalOrdinal,
+			segmentStartAdditionalLength,
+			segmentLength,
+			segmentEndAdditionalLength,
+			segmentEndInternalOrdinal,
+			segmentEndExternalOrdinal)
 }

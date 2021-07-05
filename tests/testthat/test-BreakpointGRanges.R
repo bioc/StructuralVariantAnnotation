@@ -310,8 +310,8 @@ test_that("findTransitiveCalls", {
         # Loop - bad for traversal complexity
         "chr2	140	loop_1	N	]chr2:160]N	.	.	SVTYPE=BND;MATEID=loop_2",
         "chr2	160	loop_2	N	N[chr2:140[	.	.	SVTYPE=BND;MATEID=loop_1",
-        "chr3	200	bp3_1	N	N[chr4:1000[	.	.	SVTYPE=BND;MATEID=bp3_2",
-        "chr4	1000	bp3_2	N	]chr3:200]N	.	.	SVTYPE=BND;MATEID=bp3_1",
+        "chr3	220	bp3_1	N	N[chr4:1000[	.	.	SVTYPE=BND;MATEID=bp3_2",
+        "chr4	1000	bp3_2	N	]chr3:220]N	.	.	SVTYPE=BND;MATEID=bp3_1",
         "chr1	50	imprecise_transitive_1	N	N[chr4:1060[	.	.	SVTYPE=BND;MATEID=imprecise_transitive_2;IMPRECISE;CIPOS=-100,100",
         "chr4	1060	imprecise_transitive_2	N	]chr1:50]N	.	.	SVTYPE=BND;MATEID=imprecise_transitive_1;IMPRECISE;CIPOS=-100,100",
         paste0("chr1	100	precise_transitive_1	N	N",two_hundred_N,"[chr4:1000[	.	.	SVTYPE=BND;MATEID=precise_transitive_2"),
@@ -356,8 +356,118 @@ test_that("findTransitiveCalls", {
 			distance_total=310,
 			type="imprecise")))
 })
-
-
+if (FALSE) {
+	transitiveGr = bpgr
+	subjectGr = bpgr
+	maximumInsertSize=700
+	maximumTransitiveBreakpoints=4
+	positionalMargin=8
+	impreciseTransitiveCalls=(transitiveGr$HOMLEN == 0 | is.null(transitiveGr$HOMLEN)) & start(transitiveGr) != end(transitiveGr)
+	impreciseSubjectCalls=(subjectGr$HOMLEN == 0 | is.null(subjectGr$HOMLEN)) & start(subjectGr) != end(subjectGr)
+	allowImprecise=FALSE
+}
+test_that("findTransitiveImpreciseCalls simple", {
+	bpgr = breakpointRanges(.testrecord(c(
+		"chr1	100	bp1_1	N	N[chr2:200[	.	.	SVTYPE=BND;MATEID=bp1_2",
+		"chr2	200	bp1_2	N	]chr1:100]N	.	.	SVTYPE=BND;MATEID=bp1_1",
+		"chr2	300	bp2_1	N	N[chr3:500[	.	.	SVTYPE=BND;MATEID=bp2_2",
+		"chr3	500	bp2_2	N	]chr2:300]N	.	.	SVTYPE=BND;MATEID=bp2_1",
+		"chr1	50	imprecise_transitive_1	N	N[chr3:530[	.	.	SVTYPE=BND;MATEID=imprecise_transitive_2;IMPRECISE;CIPOS=-49,100",
+		"chr3	530	imprecise_transitive_2	N	]chr1:50]N	.	.	SVTYPE=BND;MATEID=imprecise_transitive_1;IMPRECISE;CIPOS=-100,100"
+	)))
+	transdf = findTransitiveImpreciseCalls(bpgr, bpgr)
+	resultdf = DataFrame(
+			transitive_breakpoint_name=c("imprecise_transitive_1", "imprecise_transitive_2"),
+			total_distance=101,
+			traversed_breakpoint_names=CharacterList(c("bp1_1", "bp2_1"), c("bp2_2", "bp1_2")),
+			distance_to_traversed_breakpoint=IntegerList(c(0, 101), c(0, 101)))
+	expect_equal(transdf, resultdf)
+})
+test_that("findTransitiveImpreciseCalls loop", {
+	bpgr = breakpointRanges(.testrecord(c(
+		"chr1	10000	bp1_1	N	N[chr2:100[	.	.	SVTYPE=BND;MATEID=bp1_2",
+		"chr2	100	bp1_2	N	]chr1:10000]N	.	.	SVTYPE=BND;MATEID=bp1_1",
+		"chr2	300	bp2_1	N	N[chr3:50000[	.	.	SVTYPE=BND;MATEID=bp2_2",
+		"chr3	50000	bp2_2	N	]chr2:300]N	.	.	SVTYPE=BND;MATEID=bp2_1",
+		"chr2	140	loop_1	N	]chr2:160]TTTTTN	.	.	SVTYPE=BND;MATEID=loop_2",
+		"chr2	160	loop_2	N	NTTTTT[chr2:140[	.	.	SVTYPE=BND;MATEID=loop_1",
+		"chr1	10050	imprecise_transitive_1	N	N[chr3:50030[	.	.	SVTYPE=BND;MATEID=imprecise_transitive_2;IMPRECISE;CIPOS=-60,60",
+		"chr3	50030	imprecise_transitive_2	N	]chr1:10050]N	.	.	SVTYPE=BND;MATEID=imprecise_transitive_1;IMPRECISE;CIPOS=-100,100"
+	)))
+	.us = function(df) as.data.frame(df) %>% mutate(
+		traversed_breakpoint_names=unstrsplit(traversed_breakpoint_names, ","),
+		distance_to_traversed_breakpoint=unstrsplit(CharacterList(distance_to_traversed_breakpoint), ","))
+	transdf = findTransitiveImpreciseCalls(bpgr, bpgr, maximumTransitiveBreakpoints=5) %>%
+		.us() %>%
+		arrange(transitive_breakpoint_name, total_distance)
+	resultdf = DataFrame(
+		transitive_breakpoint_name=rep(c("imprecise_transitive_1", "imprecise_transitive_2"), each=4),
+		total_distance=rep(201 + 26*0:3, 2),
+		traversed_breakpoint_names=CharacterList(
+			c("bp1_1", "bp2_1"),
+			c("bp1_1", "loop_2", "bp2_1"),
+			c("bp1_1", "loop_2","loop_2", "bp2_1"),
+			c("bp1_1", "loop_2","loop_2","loop_2", "bp2_1"),
+			c("bp2_2", "bp1_2"),
+			c("bp2_2", "loop_1", "bp1_2"),
+			c("bp2_2", "loop_1", "loop_1", "bp1_2"),
+			c("bp2_2", "loop_1", "loop_1", "loop_1", "bp1_2")),
+		distance_to_traversed_breakpoint=IntegerList(
+			cumsum(c(0, 201)),
+			cumsum(c(0, 61+5, 161)),
+			cumsum(c(0, 61+5, 21+5, 161)),
+			cumsum(c(0, 61+5, 21+5, 21+5, 161)),
+			cumsum(c(0, 201)),
+			cumsum(c(0, 161+5, 61)),
+			cumsum(c(0, 161+5, 21+5, 61)),
+			cumsum(c(0, 161+5, 21+5, 21+5, 61)))) %>%
+		.us()
+	expect_equal(transdf, resultdf)
+})
+test_that(".traversable_segments", {
+	bpgr = breakpointRanges(.testrecord(c(
+		"chr1	10000	bp1_1	N	N[chr2:100[	.	.	SVTYPE=BND;MATEID=bp1_2",
+		"chr2	100	bp1_2	N	]chr1:10000]N	.	.	SVTYPE=BND;MATEID=bp1_1",
+		"chr2	300	bp2_1	N	N[chr3:50000[	.	.	SVTYPE=BND;MATEID=bp2_2",
+		"chr3	50000	bp2_2	N	]chr2:300]N	.	.	SVTYPE=BND;MATEID=bp2_1",
+		"chr2	140	loop_1	N	]chr2:160]TTTTTN	.	.	SVTYPE=BND;MATEID=loop_2",
+		"chr2	160	loop_2	N	NTTTTT[chr2:140[	.	.	SVTYPE=BND;MATEID=loop_1"
+	)))
+	#  -1 bp1    -loop-
+	#   |        |    |        +
+	#   2--------5----6--------3
+	#   -        -    +        |
+	#                          4-- bp2
+	#  100      140  160      300
+	# segments are:
+	#   2----------------------3
+	#   2-------------6
+	#            5-------------3
+	#
+	bpgr$ordinal = seq_len(length(bpgr))
+	bpgr$partnerOrdinal = partner(bpgr)$ordinal
+	segdf = .traversable_segments(bpgr, 1000)
+	expecteddf = data.frame(
+		segmentStartExternalOrdinal=c(1, 1, 6, 6),
+		segmentStartInternalOrdinal=c(2, 2, 5, 5),
+		segmentStartAdditionalLength=c(0,0,5,5),
+		segmentLength=c(61, 201, 161, 21),
+		segmentEndAdditionalLength=c(5, 0, 0, 5),
+		segmentEndInternalOrdinal=c(6, 3, 3, 6),
+		segmentEndExternalOrdinal=c(5, 4, 4, 5))
+	expecteddf = bind_rows(expecteddf, expecteddf %>%
+		dplyr::select(
+			segmentStartExternalOrdinal=segmentEndExternalOrdinal,
+			segmentEndExternalOrdinal=segmentStartExternalOrdinal,
+			segmentLength=segmentLength,
+			segmentStartInternalOrdinal=segmentEndInternalOrdinal,
+			segmentEndInternalOrdinal=segmentStartInternalOrdinal,
+			segmentStartAdditionalLength=segmentEndAdditionalLength,
+			segmentEndAdditionalLength=segmentStartAdditionalLength))
+	expect_equal(
+		segdf %>% arrange(segmentStartExternalOrdinal, segmentEndExternalOrdinal, segmentStartInternalOrdinal),
+		expecteddf %>% arrange(segmentStartExternalOrdinal, segmentEndExternalOrdinal, segmentStartInternalOrdinal))
+})
 
 
 
