@@ -299,63 +299,6 @@ test_that("findInsDupOverlaps", {
 	expect_equal(subjectHits(hits12), queryHits(hits21))
 	expect_equal(subjectHits(hits21), queryHits(hits12))
 })
-test_that("findTransitiveCalls", {
-	hundred_N="NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
-	two_hundred_N=paste0(hundred_N, hundred_N)
-    bpgr = breakpointRanges(.testrecord(c(
-        "chr1	100	bp1_1	N	N[chr2:200[	.	.	SVTYPE=BND;MATEID=bp1_2",
-        "chr2	200	bp1_2	N	]chr1:100]N	.	.	SVTYPE=BND;MATEID=bp1_1",
-        "chr2	300	bp2_1	N	N[chr3:100[	.	.	SVTYPE=BND;MATEID=bp2_2",
-        "chr3	200	bp2_2	N	]chr2:300]N	.	.	SVTYPE=BND;MATEID=bp2_1",
-        # Loop - bad for traversal complexity
-        "chr2	140	loop_1	N	]chr2:160]N	.	.	SVTYPE=BND;MATEID=loop_2",
-        "chr2	160	loop_2	N	N[chr2:140[	.	.	SVTYPE=BND;MATEID=loop_1",
-        "chr3	220	bp3_1	N	N[chr4:1000[	.	.	SVTYPE=BND;MATEID=bp3_2",
-        "chr4	1000	bp3_2	N	]chr3:220]N	.	.	SVTYPE=BND;MATEID=bp3_1",
-        "chr1	50	imprecise_transitive_1	N	N[chr4:1060[	.	.	SVTYPE=BND;MATEID=imprecise_transitive_2;IMPRECISE;CIPOS=-100,100",
-        "chr4	1060	imprecise_transitive_2	N	]chr1:50]N	.	.	SVTYPE=BND;MATEID=imprecise_transitive_1;IMPRECISE;CIPOS=-100,100",
-        paste0("chr1	100	precise_transitive_1	N	N",two_hundred_N,"[chr4:1000[	.	.	SVTYPE=BND;MATEID=precise_transitive_2"),
-        paste0("chr4	1000	precise_transitive_2	N	]chr1:100]",two_hundred_N,"N	.	.	SVTYPE=BND;MATEID=precise_transitive_1")
-    )))
-    transdf = findTransitiveCalls(bpgr, bpgr)
-    expect_equal(transdf, bind_rows(
-		data.frame(
-			start_breakpoint="imprecise_transitive_1",
-			end_breakpoint="imprecise_transitive_2",
-			transitive_breakpoint=c("bp1_1", "bp2_1", "bp3_1"),
-			transitive_breakpoint_index=c(1, 2, 3),
-			transitive_breakpoint_total=3,
-			distance_from_start=c(50, 150, 250),
-			distance_total=310,
-			type="imprecise"),
-		data.frame(
-			start_breakpoint="imprecise_transitive_2",
-			end_breakpoint="imprecise_transitive_1",
-			transitive_breakpoint=c("bp3_2", "bp2_2", "bp1_2"),
-			transitive_breakpoint_index=c(1, 2, 3),
-			transitive_breakpoint_total=3,
-			distance_from_start=c(60, 160, 260),
-			distance_total=310,
-			type="imprecise"),
-		data.frame(
-			start_breakpoint="precise_transitive_1",
-			end_breakpoint="precise_transitive_2",
-			transitive_breakpoint=c("bp1_1", "bp2_1", "bp3_1"),
-			transitive_breakpoint_index=c(1, 2, 3),
-			transitive_breakpoint_total=3,
-			distance_from_start=c(0, 100, 200),
-			distance_total=200,
-			type="imprecise"),
-		data.frame(
-			start_breakpoint="precise_transitive_2",
-			end_breakpoint="precise_transitive_1",
-			transitive_breakpoint=c("bp3_2", "bp2_2", "bp1_2"),
-			transitive_breakpoint_index=c(1, 2, 3),
-			transitive_breakpoint_total=3,
-			distance_from_start=c(60, 160, 260),
-			distance_total=310,
-			type="imprecise")))
-})
 if (FALSE) {
 	transitiveGr = bpgr
 	subjectGr = bpgr
@@ -366,7 +309,7 @@ if (FALSE) {
 	impreciseSubjectCalls=(subjectGr$HOMLEN == 0 | is.null(subjectGr$HOMLEN)) & start(subjectGr) != end(subjectGr)
 	allowImprecise=FALSE
 }
-test_that("findTransitiveImpreciseCalls simple", {
+test_that("findTransitiveCalls imprecise", {
 	bpgr = breakpointRanges(.testrecord(c(
 		"chr1	100	bp1_1	N	N[chr2:200[	.	.	SVTYPE=BND;MATEID=bp1_2",
 		"chr2	200	bp1_2	N	]chr1:100]N	.	.	SVTYPE=BND;MATEID=bp1_1",
@@ -375,7 +318,7 @@ test_that("findTransitiveImpreciseCalls simple", {
 		"chr1	50	imprecise_transitive_1	N	N[chr3:530[	.	.	SVTYPE=BND;MATEID=imprecise_transitive_2;IMPRECISE;CIPOS=-49,100",
 		"chr3	530	imprecise_transitive_2	N	]chr1:50]N	.	.	SVTYPE=BND;MATEID=imprecise_transitive_1;IMPRECISE;CIPOS=-100,100"
 	)))
-	transdf = findTransitiveImpreciseCalls(bpgr, bpgr)
+	transdf = findTransitiveCalls(bpgr, bpgr)
 	resultdf = DataFrame(
 			transitive_breakpoint_name=c("imprecise_transitive_1", "imprecise_transitive_2"),
 			total_distance=101,
@@ -383,7 +326,7 @@ test_that("findTransitiveImpreciseCalls simple", {
 			distance_to_traversed_breakpoint=IntegerList(c(0, 101), c(0, 101)))
 	expect_equal(transdf, resultdf)
 })
-test_that("findTransitiveImpreciseCalls loop", {
+test_that("findTransitiveCalls loop", {
 	bpgr = breakpointRanges(.testrecord(c(
 		"chr1	10000	bp1_1	N	N[chr2:100[	.	.	SVTYPE=BND;MATEID=bp1_2",
 		"chr2	100	bp1_2	N	]chr1:10000]N	.	.	SVTYPE=BND;MATEID=bp1_1",
@@ -397,7 +340,7 @@ test_that("findTransitiveImpreciseCalls loop", {
 	.us = function(df) as.data.frame(df) %>% mutate(
 		traversed_breakpoint_names=unstrsplit(traversed_breakpoint_names, ","),
 		distance_to_traversed_breakpoint=unstrsplit(CharacterList(distance_to_traversed_breakpoint), ","))
-	transdf = findTransitiveImpreciseCalls(bpgr, bpgr, maximumTransitiveBreakpoints=5) %>%
+	transdf = findTransitiveCalls(bpgr, bpgr, maximumTraversedBreakpoints=5) %>%
 		.us() %>%
 		arrange(transitive_breakpoint_name, total_distance)
 	resultdf = DataFrame(
@@ -468,6 +411,33 @@ test_that(".traversable_segments", {
 		segdf %>% arrange(segmentStartExternalOrdinal, segmentEndExternalOrdinal, segmentStartInternalOrdinal),
 		expecteddf %>% arrange(segmentStartExternalOrdinal, segmentEndExternalOrdinal, segmentStartInternalOrdinal))
 })
-
+test_that("findTransitiveCalls precise", {
+	hundred_N="NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+	two_hundred_N=paste0(hundred_N, hundred_N)
+	# chr1 --]100]
+	#          |
+	# chr2   [200[--------]300]
+	#                       |
+	# chr3                [100[----]220]
+	#                                |
+	# chr4                         [1000[-----
+	bpgr = breakpointRanges(.testrecord(c(
+		"chr1	100	bp1_1	N	N[chr2:200[	.	.	SVTYPE=BND;MATEID=bp1_2",
+		"chr2	200	bp1_2	N	]chr1:100]N	.	.	SVTYPE=BND;MATEID=bp1_1",
+		"chr2	300	bp2_1	N	N[chr3:100[	.	.	SVTYPE=BND;MATEID=bp2_2",
+		"chr3	100	bp2_2	N	]chr2:300]N	.	.	SVTYPE=BND;MATEID=bp2_1",
+		"chr3	220	bp3_1	N	N[chr4:1000[	.	.	SVTYPE=BND;MATEID=bp3_2",
+		"chr4	1000	bp3_2	N	]chr3:220]N	.	.	SVTYPE=BND;MATEID=bp3_1",
+		paste0("chr1	100	precise_transitive_1	N	N",two_hundred_N,"[chr4:1000[	.	.	SVTYPE=BND;MATEID=precise_transitive_2"),
+		paste0("chr4	1000	precise_transitive_2	N	]chr1:100]",two_hundred_N,"N	.	.	SVTYPE=BND;MATEID=precise_transitive_1")
+	)))
+	transdf = findTransitiveCalls(bpgr, bpgr)
+	resultdf = DataFrame(
+		transitive_breakpoint_name=c("precise_transitive_1", "precise_transitive_2"),
+		total_distance=101+121,
+		traversed_breakpoint_names=CharacterList(c("bp1_1", "bp2_1", "bp3_1"), c("bp3_2", "bp2_2", "bp1_2")),
+		distance_to_traversed_breakpoint=IntegerList(c(0, 101, 101+121), c(0, 121, 121+101)))
+	expect_equal(transdf, resultdf)
+})
 
 

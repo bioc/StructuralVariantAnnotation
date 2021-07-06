@@ -641,48 +641,66 @@ findInsDupOverlaps <- function(query, subject, maxgap=-1L, maxsizedifference=0L)
 #' 
 #' @param transitiveGr a breakpoint GRanges object containing imprecise calls
 #' @param subjectGr breakpoints to traverse
-
-#' @param maximumInsertSize
+#' @param maximumImpreciseInsertSize
 #' Expected number of bases to traverse imprecise calls.
-#' @param maximumTransitiveBreakpoints
+#' @param minimumTraversedBreakpoints
+#' Minimum number of traversed breakpoints to consider a transitive
+#' @param maximumTraversedBreakpoints
 #' Maximum number of breakpoints to traverse when looking for an explanation of the transitive calls
 #' @param positionalMargin 
 #' Allowable margin of error when matching call positional overlaps.
 #' A non-zero margin allows for matching of breakpoint with imperfect homology.
-#' @param impreciseCalls
-#' Boolean vector of same length as query indicating which query GRanges
+#' @param lengthMargin
+#' Allowable difference in length between the inserted sequence and the traversed
+#' path length.
+#' Defaults to 50bp to allow for long read indel errors.
+#' @param insLen
+#' Integer vector of same length as `transitiveGr` indicating the number
+#' of bases inserted at the breakpoint.
+#' @param impreciseTransitiveCalls
+#' Boolean vector of same length as `transitiveGr` indicating which calls
 #' are imprecise calls. Defaults to calls with a non-zero interval size
 #' that have no homology.
-#' @param impreciseCalls imprecise calls in `transitiveGr`.
-#' Precise calls are ignored.
-#' 
+#' @param impreciseSubjectCalls
+#' Boolean vector of same length as `subjectGr` indicating which calls
+#' are imprecise calls. Defaults to calls with a non-zero interval size
+#' that have no homology.
 #' @param allowImprecise Allow traversal of imprecise calls.
 #' Defaults to FALSE as to prevent spurious results which skip
 #' some breakpoints when traversing multiple breakpoints
 #' E.g. An A-D transitive from an underlying A-B-C-D rearrangement
 #' will include A-B-D and A-C-D results if allowImprecise=TRUE.
-#' 
-#' @return `data.frame` containing the transitive calls traversed with the following columns:
+#' @return `DataFrame` containing the transitive calls traversed with the following columns:
 #' | column | meaning | 
 #' | ------ | ------- | 
 #' | transitive_breakpoint_name | Name of the transitive breakpoint a path was found for |
 #' | total_distance | Total length (in bp) of the path |
-#' | traversed_breakpoint_names | List of names of breakpoint traversed in the path |
-#' | distance_to_traversed_breakpoint | List of distances from start of path to end of traversing breakpoint |
+#' | traversed_breakpoint_names | `CharacterList` of names of breakpoint traversed in the path |
+#' | distance_to_traversed_breakpoint | `IntegerList` of distances from start of path to end of traversing breakpoint |
 #' @export
-findTransitiveImpreciseCalls <- function(
+findTransitiveCalls <- function(
 		transitiveGr,
 		subjectGr,
-		maximumInsertSize=700,
-		maximumTransitiveBreakpoints=4,
+		maximumImpreciseInsertSize=700,
+		minimumTraversedBreakpoints=2,
+		maximumTraversedBreakpoints=6,
 		positionalMargin=8,
+		insertionLengthMargin=50,
+		insLen=transitiveGr$insLen,
 		impreciseTransitiveCalls=(transitiveGr$HOMLEN == 0 | is.null(transitiveGr$HOMLEN)) & start(transitiveGr) != end(transitiveGr),
 		impreciseSubjectCalls=(subjectGr$HOMLEN == 0 | is.null(subjectGr$HOMLEN)) & start(subjectGr) != end(subjectGr),
-		allowImprecise=FALSE) {
+		allowImprecise=FALSE,
+		filterSelf=TRUE) {
+	if (is.null(insLen)) {
+		stop("Missing insLen")
+	}
 	transitiveGr$.isImprecise = impreciseTransitiveCalls
+	transitiveGr$insLen = insLen
 	transitiveGr = transitiveGr[hasPartner(transitiveGr)]
 	transitiveGr$.isImprecise = transitiveGr$.isImprecise | partner(transitiveGr)$.isImprecise
-	transitiveGr = transitiveGr[transitiveGr$.isImprecise]
+	transitiveGr$minimumTransitiveLength = ifelse(insLen > 0, pmin(0, insLen - insertionLengthMargin), 0)
+	transitiveGr$maximumTransitiveLength = ifelse(insLen > 0, insLen + insertionLengthMargin, ifelse(impreciseTransitiveCalls, maximumImpreciseInsertSize, 0))
+	transitiveGr = transitiveGr[transitiveGr$maximumTransitiveLength > 0]
 	transitiveGr$ordinal = seq_len(length(transitiveGr))
 	transitiveGr$partnerOrdinal = partner(transitiveGr)$ordinal
 	if (!allowImprecise) {
@@ -692,7 +710,7 @@ findTransitiveImpreciseCalls <- function(
 	# centre-align subject intervals to simplify the traversal logic
 	start(subjectGr) = (start(subjectGr) + end(subjectGr)) / 2
 	if (is.null(subjectGr$insLen)) {
-		warning("insLen field missing. Assuming all breakpoints have no inserted sequence")
+		warning("insLen field missing. Assuming all traversed breakpoints have no inserted sequence")
 		subjectGr$insLen = 0
 	}
 	subjectGr$insLen = subjectGr$insLen %na% 0
@@ -717,8 +735,10 @@ findTransitiveImpreciseCalls <- function(
 			# TAB is used as a placeholder as it's a disallowed character in VCF and causes a parsing error in BEDPE
 			breakpointsTraversed=paste0(names(subjectGr)[currentTraverseInOrdinal], "	"),
 			traversedDistances=paste0(distance, "	"),
-			traversedBreakpoints=1)
-
+			traversedBreakpoints=1,
+			minimumTransitiveLength=transitiveGr$minimumTransitiveLength[terminalStartOrdinal],
+			maximumTransitiveLength=transitiveGr$maximumTransitiveLength[terminalStartOrdinal])
+	
 	resultdf = data.frame(
 		terminalStartOrdinal=integer(0),
 		currentTraverseInOrdinal=integer(0),
@@ -730,14 +750,19 @@ findTransitiveImpreciseCalls <- function(
 		traversedDistances=character(0),
 		traversedBreakpoints=integer(0))
 	if (nrow(current_traversals > 0)) {
-		traversable_segments = .traversable_segments(subjectGr, maximumInsertSize)
+		traversable_segments = .traversable_segments(subjectGr, max(current_traversals$maximumTransitiveLength))
 		# now we traverse
 		while (nrow(current_traversals) > 0) {
 			# Terminal paths
 			current_traversals = current_traversals %>%
-				dplyr::filter(distance <= maximumInsertSize & traversedBreakpoints <= maximumTransitiveBreakpoints) %>%
+				dplyr::filter(distance <= maximumTransitiveLength & traversedBreakpoints <= maximumTraversedBreakpoints) %>%
 				dplyr::mutate(is_complete_path=currentTraverseOutOrdinal == endingTraverseOutOrdinal)
-			resultdf = bind_rows(resultdf, current_traversals %>% filter(is_complete_path))
+			resultdf = bind_rows(
+				resultdf,
+				current_traversals %>% filter(
+					is_complete_path &
+					distance >= minimumTransitiveLength &
+					traversedBreakpoints >= minimumTraversedBreakpoints))
 			# traverse
 			current_traversals = current_traversals %>%
 				filter(!is_complete_path) %>%
@@ -759,7 +784,7 @@ findTransitiveImpreciseCalls <- function(
 		}
 	}
 	# transform results into long form
-	resultdf = resultdf %>% 
+	resultdf = resultdf %>%
 		dplyr::mutate(
 			transitive_breakpoint_name=names(transitiveGr)[terminalStartOrdinal],
 			total_distance=as.integer(distance),
