@@ -15,14 +15,14 @@ expect_equal(elementExtract(IntegerList()), integer(0))
 
 expect_equal(elementExtract(NULL), NULL)
 
-expect_equal(NULL %na% c(1,2,3), c(1,2,3))
-expect_equal(c(1,NA,NA) %na% c(3,2,NA), c(1,2,NA))
-expect_equal(c(1,2,3) %na% NULL, c(1,2,3))
-expect_equal(c(1,NA) %na% c(1,2,3), c(1,2))
-expect_equal(c(1,NA) %na% integer(0), c(1,NA))
+expect_equal(.replaceNa(NULL, c(1,2,3)), c(1,2,3))
+expect_equal(.replaceNa(c(1,NA,NA), c(3,2,NA)), c(1,2,NA))
+expect_equal(.replaceNa(c(1,2,3), NULL), c(1,2,3))
+expect_equal(.replaceNa(c(1,NA), c(1,2,3)), c(1,2))
+expect_equal(.replaceNa(c(1,NA), integer(0)), c(1,NA))
 # want to be able to perform operations on VCF columns that may not exist
-expect_equal(numeric(0) %na% c(1,2), c(1,2))
-expect_equal((NULL - c(2, NA)) %na% c(1,2), c(1,2))
+expect_equal(.replaceNa(numeric(0), c(1,2)), c(1,2))
+expect_equal(.replaceNa((NULL - c(2, NA)), c(1,2)), c(1,2))
 
 expect_equal(.pairwiseLCPrefix(DNAStringSet(c("Aa", "CCCt", "N")), c("aA", "ccct", ""), ignore.case=TRUE), c(2, 4, 0))
 expect_equal(.pairwiseLCPrefix(DNAStringSet(c("ACGT")), c("CGT"), ignore.case=TRUE), c(0))

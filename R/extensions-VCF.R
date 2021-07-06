@@ -109,9 +109,9 @@ setMethod("isStructural", "ExpandedVCF",
     r <- ref(vcf)
     a <- elementExtract(alt(vcf))
     result <- ifelse(!isStructural(vcf), 0,
-		elementExtract(info(vcf)$SVLEN) %na%
-		(elementExtract(info(vcf)$END) - start(SummarizedExperiment::rowRanges(vcf))) %na%
-		(ifelse(isSymbolic(vcf), NA_integer_, IRanges::nchar(a) - IRanges::nchar(r))))
+		.replaceNa(elementExtract(info(vcf)$SVLEN),
+		.replaceNa(elementExtract(info(vcf)$END) - start(SummarizedExperiment::rowRanges(vcf)),
+			ifelse(isSymbolic(vcf), NA_integer_, IRanges::nchar(a) - IRanges::nchar(r)))))
     return(result)
 }
 
@@ -203,10 +203,10 @@ setMethod("breakpointRanges", "VCF",
 	gr$ALT <- as.character(elementExtract(alt(vcf), 1))
 	gr$sourceId <- names(vcf)
 	gr$partner <- rep(NA_character_, length(gr))
-	gr$svtype <- elementExtract(info(vcf)$SVTYPE) %na%
+	gr$svtype <- .replaceNa(elementExtract(info(vcf)$SVTYPE), 
 		# hack ensure that [,2] exists even for zero record vcfs
-		(stringr::str_match(c("HACK", gr$ALT), "<(.*)>")[,2][-1]) %na%
-		rep(NA_character_, length(gr))
+		.replaceNa(stringr::str_match(c("HACK", gr$ALT), "<(.*)>")[,2][-1],
+			rep(NA_character_, length(gr))))
 	# use the root type
 	gr$svtype <- stringr::str_extract(gr$svtype, "^[^:]+")
 	gr$svLen <- .svLen(vcf)
@@ -223,7 +223,7 @@ setMethod("breakpointRanges", "VCF",
 		gr$ciwidth <- ifelse(is.na(seq), gr$ciwidth, nchar(seq))
 	}
 	if (!is.null(info(vcf)$HOMLEN)) {
-		gr$ciwidth <- elementExtract(info(vcf)$HOMLEN, 1) %na% gr$ciwidth
+		gr$ciwidth <- .replaceNa(elementExtract(info(vcf)$HOMLEN, 1), gr$ciwidth)
 	}
 	# have not yet factored in imprecise variant calling into ciwidth - just microhomology
 	gr$HOMLEN <- gr$ciwidth
@@ -233,8 +233,8 @@ setMethod("breakpointRanges", "VCF",
 		cistartoffset <- elementExtract(info(vcf)$CIPOS, 1)
 		ciendoffset <- elementExtract(info(vcf)$CIPOS, 2)
 		ciwidth <- ciendoffset - cistartoffset
-		gr$cistartoffset <- cistartoffset %na% gr$cistartoffset
-		gr$ciwidth <- ciwidth %na% gr$ciwidth
+		gr$cistartoffset <- .replaceNa(cistartoffset, gr$cistartoffset)
+		gr$ciwidth <- .replaceNa(ciwidth, gr$ciwidth)
 	}
 	gr$processed <- rep(FALSE, length(gr))
 	outgr <- gr[FALSE,]
@@ -282,12 +282,12 @@ setMethod("breakpointRanges", "VCF",
 			cgr$insLen <- ifelse(ins, abs(cgr$svLen), 0)
 			if (!is.null(info(cvcf)$NTLEN)) {
 				#pindel RPL
-				cgr$insLen <- elementExtract(info(cvcf)$NTLEN) %na% cgr$insLen
+				cgr$insLen <- .replaceNa(elementExtract(info(cvcf)$NTLEN), cgr$insLen)
 			}
 			mategr <- cgr
 			strand(mategr) <- "-"
 			# use end, then fall back to calculating from length
-			end <- elementExtract(info(cvcf)$END, 1) %na% (start(cgr) + ifelse(ins, 0, abs(cgr$svLen)))
+			end <- .replaceNa(elementExtract(info(cvcf)$END, 1), start(cgr) + ifelse(ins, 0, abs(cgr$svLen)))
 			if (any(is.na(end))) {
 				stop(paste("Variant of undefined length: ", paste(names(cgr)[is.na(end),], collapse=", ")))
 			}
@@ -296,9 +296,8 @@ setMethod("breakpointRanges", "VCF",
 			cistartoffset <- elementExtract(info(cvcf)$CIEND, 1)
 			ciendoffset <- elementExtract(info(cvcf)$CIEND, 2)
 			ciwidth <- ciendoffset - cistartoffset
-			mategr$cistartoffset <- cistartoffset %na% mategr$cistartoffset
-			mategr$ciwidth <- ciwidth %na% mategr$ciwidth
-
+			mategr$cistartoffset <- .replaceNa(cistartoffset, mategr$cistartoffset)
+			mategr$ciwidth <- .replaceNa(ciwidth, mategr$ciwidth)
 
 			strand(cgr)[dup] <- "-"
 			strand(mategr)[dup] <- "+"
@@ -318,7 +317,7 @@ setMethod("breakpointRanges", "VCF",
 		gr$processed[rows] <- TRUE
 		if (!unpartneredBreakends) {
 			width(cgr1) <- 1
-			end <- elementExtract(info(vcf)$END[rows], 1) %na% (start(cgr1) + abs(cgr1$svLen) - 1)
+			end <- .replaceNa(elementExtract(info(vcf)$END[rows], 1), start(cgr1) + abs(cgr1$svLen) - 1)
 			if (any(is.na(end))) {
 				stop(paste("Variant of undefined length: ", paste(names(cgr1)[is.na(end),], collapse=", ")))
 			}
@@ -335,8 +334,8 @@ setMethod("breakpointRanges", "VCF",
 			cistartoffset <- elementExtract(info(vcf)$CIEND[rows], 1)
 			ciendoffset <- elementExtract(info(vcf)$CIEND[rows], 2)
 			ciwidth <- ciendoffset - cistartoffset
-			cgr2$cistartoffset <- cistartoffset %na% cgr2$cistartoffset
-			cgr2$ciwidth <- ciwidth %na% cgr2$ciwidth
+			cgr2$cistartoffset <- .replaceNa(cistartoffset, cgr2$cistartoffset)
+			cgr2$ciwidth <- .replaceNa(ciwidth, cgr2$ciwidth)
 			cgr3 <- cgr1
 			cgr4 <- cgr2
 
@@ -466,7 +465,7 @@ setMethod("breakpointRanges", "VCF",
 			if (is.null(info(cvcf)$CT) || any(is.na(info(cvcf)$CT))) {
 				stop(paste("Delly variants missing CT:", paste(names(cgr)[is.na(info(cvcf)$CT)], collapse=", ")))
 			}
-			cgr$insLen <- info(cvcf)$INSLEN %na% 0 # Delly no longer writes INSLEN to all TRA records
+			cgr$insLen <- .replaceNa(info(cvcf)$INSLEN, 0) # Delly no longer writes INSLEN to all TRA records
 			width(cgr) <- 1
 			mategr <- cgr
 			# Hack so we can add new seqlevels if required
@@ -476,8 +475,8 @@ setMethod("breakpointRanges", "VCF",
 			strand(cgr) <- ifelse(info(cvcf)$CT %in% c("3to3", "3to5"), "+", "-")
 			strand(mategr) <- ifelse(info(cvcf)$CT %in% c("3to3", "5to3"), "+", "-")
 
-			mcistartoffset <- elementExtract(info(cvcf)$CIEND, 1) %na% 0
-			mciendoffset <- elementExtract(info(cvcf)$CIEND, 2) %na% 0
+			mcistartoffset <- .replaceNa(elementExtract(info(cvcf)$CIEND, 1), 0)
+			mciendoffset <- .replaceNa(elementExtract(info(cvcf)$CIEND, 2), 0)
 			mciwidth <- mciendoffset - mcistartoffset
 			mategr$cistartoffset <- mcistartoffset
 			mategr$ciwidth <- mciwidth
@@ -513,8 +512,8 @@ setMethod("breakpointRanges", "VCF",
 			strand(cgr) <- "*"
 			strand(mategr) <- "*"
 
-			mcistartoffset <- elementExtract(info(cvcf)$CIEND, 1) %na% 0
-			mciendoffset <- elementExtract(info(cvcf)$CIEND, 2) %na% 0
+			mcistartoffset <- .replaceNa(elementExtract(info(cvcf)$CIEND, 1), 0)
+			mciendoffset <- .replaceNa(elementExtract(info(cvcf)$CIEND, 2), 0)
 			mciwidth <- mciendoffset - mcistartoffset
 			mategr$cistartoffset <- mcistartoffset
 			mategr$ciwidth <- mciwidth

@@ -127,8 +127,8 @@ findBreakpointOverlaps <- function(query, subject, maxgap=-1L, minoverlap=0L, ig
     # take into account confidence intervals when calculating event size
     callwidth <- .distance(query, pquery)
     truthwidth <- .distance(subject, squery)
-    callsize <- callwidth + (query$insLen %na% 0)
-    truthsize <- truthwidth + (subject$insLen %na% 0)
+    callsize <- callwidth + .replaceNa(query$insLen, 0)
+    truthsize <- truthwidth + .replaceNa(subject$insLen, 0)
     sizeerror <- .distance(
       IRanges::IRanges(start=callsize$min[S4Vectors::queryHits(hits)], end=callsize$max[S4Vectors::queryHits(hits)]),
       IRanges::IRanges(start=truthsize$min[S4Vectors::subjectHits(hits)], end=truthsize$max[S4Vectors::subjectHits(hits)])
@@ -227,7 +227,7 @@ breakpointgr2pairs <- function(
   .assertValidBreakpointGRanges(bpgr, "Cannot convert breakpoint GRanges to Pairs: ", allowSingleBreakends=FALSE)
   
   if (is.null(bedpeName)) {
-    bedpeName = function(gr) { (gr$sourceId %null% gr$name) %null% names(gr) }
+    bedpeName = function(gr) { .replaceNull(.replaceNull(gr$sourceId, gr$name), names(gr)) }
   }
   if (is.null(firstInPair)) {
     firstInPair = function(gr) { seq_along(gr) < match(gr$partner, names(gr)) }
@@ -335,8 +335,8 @@ pairs2breakpointgr <- function(
 extractBreakpointSequence <- function(gr, ref, anchoredBases, remoteBases=anchoredBases) {
 	localSeq <- extractReferenceSequence(gr, ref, anchoredBases, 0)
 	insSeq <- ifelse(strand(gr) == "-",
-					 as.character(Biostrings::reverseComplement(DNAStringSet(gr$insSeq %na% ""))),
-					 gr$insSeq %na% "")
+					 as.character(Biostrings::reverseComplement(DNAStringSet(.replaceNa(gr$insSeq,"")))),
+					 .replaceNa(gr$insSeq, ""))
 	remoteSeq <- as.character(Biostrings::reverseComplement(DNAStringSet(
 		extractReferenceSequence(partner(gr), ref, remoteBases, 0))))
 	return(paste0(localSeq, insSeq, remoteSeq))
@@ -423,7 +423,7 @@ calculateReferenceHomology <- function(gr, ref,
 									   #match = 1, mismatch = -4, gapOpening = 6, gapExtension = 1, # bowtie2
 ) {
 	# shrink anchor for small events to prevent spanning alignment
-	aLength <- pmin(anchorLength, abs(gr$svLen) + 1) %na% anchorLength
+	aLength <- .replaceNa(pmin(anchorLength, abs(gr$svLen) + 1), anchorLength)
 	anchorSeq <- extractReferenceSequence(gr, ref, aLength, 0)
 	anchorSeq <- sub(".*N", "", anchorSeq)
 	# shrink anchor with Ns
@@ -713,7 +713,7 @@ findTransitiveCalls <- function(
 		warning("insLen field missing. Assuming all traversed breakpoints have no inserted sequence")
 		subjectGr$insLen = 0
 	}
-	subjectGr$insLen = subjectGr$insLen %na% 0
+	subjectGr$insLen = .replaceNa(subjectGr$insLen, 0)
 	subjectGr$ordinal = seq_len(length(subjectGr))
 	subjectGr$partnerOrdinal = partner(subjectGr)$ordinal
 	# transitive breakpoint must occur within the confidence interval bounds
