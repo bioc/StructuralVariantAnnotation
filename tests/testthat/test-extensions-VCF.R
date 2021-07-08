@@ -382,7 +382,7 @@ test_that("breakpointRanges(inferMissingBreakends=TRUE) should add missing break
 # 1.6.1.8 End reference position (1-based), indicating the variant spans positions POS–END on reference/contig CHROM. Normally this is the position of the last base in the REF allele
 test_that("representations are equivalent", {
     bpgr = breakpointRanges(representations)
-    expect_equal(rep(-7, 6), bpgr$svlen == -7)
+    expect_equal(rep(-7, 6), bpgr$svLen)
     expect_equal(rep(c(5, 13), 3), start(bpgr))
     expect_equal(rep(c(5, 13), 3), end(bpgr))
 })

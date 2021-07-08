@@ -757,16 +757,16 @@ findTransitiveCalls <- function(
 			current_traversals = current_traversals %>%
 				dplyr::filter(distance <= maximumTransitiveLength & traversedBreakpoints <= maximumTraversedBreakpoints) %>%
 				dplyr::mutate(is_complete_path=currentTraverseOutOrdinal == endingTraverseOutOrdinal)
-			resultdf = bind_rows(
+			resultdf = dplyr::bind_rows(
 				resultdf,
-				current_traversals %>% filter(
+				current_traversals %>% dplyr::filter(
 					is_complete_path &
 					distance >= minimumTransitiveLength &
 					traversedBreakpoints >= minimumTraversedBreakpoints))
 			# traverse
 			current_traversals = current_traversals %>%
-				filter(!is_complete_path) %>%
-				inner_join(traversable_segments, by=c("currentTraverseInOrdinal"="segmentStartExternalOrdinal")) %>%
+				dplyr::filter(!is_complete_path) %>%
+				dplyr::inner_join(traversable_segments, by=c("currentTraverseInOrdinal"="segmentStartExternalOrdinal")) %>%
 				dplyr::mutate(
 					currentTraverseInOrdinal=segmentEndInternalOrdinal,
 					currentTraverseOutOrdinal=segmentEndExternalOrdinal,

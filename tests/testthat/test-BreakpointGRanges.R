@@ -1,4 +1,6 @@
 context('parsing functions')
+library(tidyverse)
+library(stringr)
 example <- readVcf(.testfile("vcf4.2.example.sv.vcf"), "")
 simple <- readVcf(.testfile("simple.vcf"), "")
 breakend <- readVcf(.testfile("breakend.vcf"), "")
@@ -212,12 +214,12 @@ test_that("pairs_round_trip", {
     pairs = import(system.file("extdata", f, package = "StructuralVariantAnnotation"))
     gr = pairs2breakpointgr(pairs)
     pairs2 = breakpointgr2pairs(gr)
-    expect_equal(seqnames(first(pairs)), seqnames(first(pairs2)))
-    expect_equal(start(first(pairs)), start(first(pairs2)))
-    expect_equal(strand(first(pairs)), strand(first(pairs2)))
-    expect_equal(seqnames(second(pairs)), seqnames(second(pairs2)))
-    expect_equal(start(second(pairs)), start(second(pairs2)))
-    expect_equal(strand(second(pairs)), strand(second(pairs2)))
+    expect_equal(seqnames(S4Vectors::first(pairs)), seqnames(S4Vectors::first(pairs2)))
+    expect_equal(start(S4Vectors::first(pairs)), start(S4Vectors::first(pairs2)))
+    expect_equal(strand(S4Vectors::first(pairs)), strand(S4Vectors::first(pairs2)))
+    expect_equal(seqnames(S4Vectors::second(pairs)), seqnames(S4Vectors::second(pairs2)))
+    expect_equal(start(S4Vectors::second(pairs)), start(S4Vectors::second(pairs2)))
+    expect_equal(strand(S4Vectors::second(pairs)), strand(S4Vectors::second(pairs2)))
     expect_equal(mcols(pairs)$name, mcols(pairs2)$name)
     expect_equal(mcols(pairs)$score, mcols(pairs2)$score)
   }
@@ -342,7 +344,7 @@ test_that("findTransitiveCalls loop", {
 		distance_to_traversed_breakpoint=unstrsplit(CharacterList(distance_to_traversed_breakpoint), ","))
 	transdf = findTransitiveCalls(bpgr, bpgr, maximumTraversedBreakpoints=5) %>%
 		.us() %>%
-		arrange(transitive_breakpoint_name, total_distance)
+		dplyr::arrange(transitive_breakpoint_name, total_distance)
 	resultdf = DataFrame(
 		transitive_breakpoint_name=rep(c("imprecise_transitive_1", "imprecise_transitive_2"), each=4),
 		total_distance=rep(201 + 26*0:3, 2),
@@ -408,8 +410,8 @@ test_that(".traversable_segments", {
 			segmentStartAdditionalLength=segmentEndAdditionalLength,
 			segmentEndAdditionalLength=segmentStartAdditionalLength))
 	expect_equal(
-		segdf %>% arrange(segmentStartExternalOrdinal, segmentEndExternalOrdinal, segmentStartInternalOrdinal),
-		expecteddf %>% arrange(segmentStartExternalOrdinal, segmentEndExternalOrdinal, segmentStartInternalOrdinal))
+		segdf %>% dplyr::arrange(segmentStartExternalOrdinal, segmentEndExternalOrdinal, segmentStartInternalOrdinal),
+		expecteddf %>% dplyr::arrange(segmentStartExternalOrdinal, segmentEndExternalOrdinal, segmentStartInternalOrdinal))
 })
 test_that("findTransitiveCalls precise", {
 	hundred_N="NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
@@ -439,5 +441,11 @@ test_that("findTransitiveCalls precise", {
 		distance_to_traversed_breakpoint=IntegerList(c(0, 101, 101+121), c(0, 121, 121+101)))
 	expect_equal(transdf, resultdf)
 })
-
+test_that("findTransitiveCalls full", {
+	gridss_file = "C:/dev/colo829/COLO829v001-colov1_gridss_COLO829v001T.gridss.unfiltered.vcf.gz"
+	truth_file = "C:/dev/colo829/truthset_somaticSVs_COLO829.vcf"
+	if (file.exists(gridss_file)) {
+	gridss_vcf = VariantAnnotation::readVcf(gridss_file)
+	}
+})
 
