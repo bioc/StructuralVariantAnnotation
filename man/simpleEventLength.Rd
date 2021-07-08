@@ -10,7 +10,7 @@ simpleEventLength(gr)
 \item{gr}{breakpoint GRanges object}
 }
 \value{
-Length of the simplest explaination of this breakpoint/breakend.
+Length of the simplest explanation of this breakpoint/breakend.
 }
 \description{
 Length of event if interpreted as an isolated breakpoint.

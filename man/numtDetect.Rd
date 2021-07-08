@@ -31,5 +31,5 @@ Possible linked nuclear insertion sites are reported using SV IDs in the candida
 vcf.file <- system.file("extdata", "MT.vcf", package = "StructuralVariantAnnotation")
 vcf <- VariantAnnotation::readVcf(vcf.file, "hg19")
 gr <- breakpointRanges(vcf, nominalPosition=TRUE)
-numt.gr <- numtDetec(gr)
+numt.gr <- numtDetect(gr)
 }

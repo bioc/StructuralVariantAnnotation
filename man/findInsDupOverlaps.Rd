@@ -25,5 +25,5 @@ Hits object containing the ordinals of the matching breakends
 in the query and subject
 }
 \description{
-WARNING: this method does not yet check that the inserted sequence actually matched the duplicated sequence.
+WARNING: this method does not check that the inserted sequence actually matched the duplicated sequence.
 }

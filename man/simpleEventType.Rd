@@ -2,11 +2,11 @@
 % Please edit documentation in R/BreakpointGRanges.R
 \name{simpleEventType}
 \alias{simpleEventType}
-\title{Type of simplest explaination of event. Possible types are:
+\title{Type of simplest explanation of event. Possible types are:
 | Type | Description |
 | BND | Single breakend |
 | CTX | Interchromosomal translocation |
-| INV | Inversion. Note that both ++ and -- breakpoint will be classified as inversion regardless of whether the matching breakpoint actually exists |
+| INV | Inversion. |
 | DUP | Tandem duplication |
 | INS | Insertion |
 | DEL | Deletion |}
@@ -16,18 +16,12 @@ simpleEventType(gr, insertionLengthThreshold = 0.5)
 \arguments{
 \item{gr}{breakpoint GRanges object}
 
-\item{insertionLengthThreshold}{portion of inserted bases compared to total event size to be classified as an insertion. For example, a 5bp deletion with 5 inserted bases will be classified as an INS event.}
+\item{insertionLengthThreshold}{portion of inserted bases compared to total event size to be classified as an insertion.
+For example, a 5bp deletion with 5 inserted bases will be classified as an INS event.}
 }
 \value{
-Type of simplest explaination of event
+Type of simplest explanation of event
 }
 \description{
-Type of simplest explaination of event. Possible types are:
-| Type | Description |
-| BND | Single breakend |
-| CTX | Interchromosomal translocation |
-| INV | Inversion. Note that both ++ and -- breakpoint will be classified as inversion regardless of whether the matching breakpoint actually exists |
-| DUP | Tandem duplication |
-| INS | Insertion |
-| DEL | Deletion |
+Note that both ++ and -- breakpoint will be classified as inversions regardless of whether both breakpoint that consistitute an actual inversion exists or not
 }
