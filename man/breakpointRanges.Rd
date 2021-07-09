@@ -17,7 +17,8 @@ breakpointRanges(x, ...)
   suffix = "_bp",
   info_columns = NULL,
   unpartneredBreakends = FALSE,
-  inferMissingBreakends = FALSE
+  inferMissingBreakends = FALSE,
+  ignoreUnknownSymbolicAlleles = FALSE
 )
 }
 \arguments{
@@ -43,6 +44,10 @@ the nominal variant position only.}
 breakends. Default is set to FALSE.}
 
 \item{inferMissingBreakends}{Infer missing breakend records from ALT field of records without matching partners}
+
+\item{ignoreUnknownSymbolicAlleles}{Ignore unknown symbolic alleles.
+StructuralVariantAnnotation currently handles INS, INV, DEL, DUP as well as
+the VCF specifications non-compliant RPL, TRA symbolic alleles.}
 }
 \value{
 A GRanges object of SVs.

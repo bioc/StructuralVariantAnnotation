@@ -178,7 +178,7 @@ setMethod("breakpointRanges", "VCF",
 #' @param unpartneredBreakends Determining whether to report unpartnered 
 #' breakends. Default is set to FALSE.
 #' @param inferMissingBreakends Infer missing breakend records from ALT field of records without matching partners
-#' @param ignoreUnknownSymoblicAllele Ignore unknown symbolic alleles.
+#' @param ignoreUnknownSymbolicAlleles Ignore unknown symbolic alleles.
 #' StructuralVariantAnnotation currently handles INS, INV, DEL, DUP as well as
 #' the VCF specifications non-compliant RPL, TRA symbolic alleles.
 #' @rdname breakpointRanges
@@ -188,7 +188,7 @@ setMethod("breakpointRanges", "VCF",
 		placeholderName="svrecord", suffix="_bp",
 		info_columns=NULL, unpartneredBreakends=FALSE,
 		inferMissingBreakends=FALSE,
-		ignoreUnknownSymoblicAllele=FALSE) {
+		ignoreUnknownSymbolicAlleles=FALSE) {
 	vcf <- vcf[isStructural(vcf),]
 	assertthat::assert_that(.hasSingleAllelePerRecord(vcf))
 	# VariantAnnotation bug: SV row names are not unique
@@ -533,8 +533,8 @@ setMethod("breakpointRanges", "VCF",
 		cgr <- NULL
 		mategr <- NULL
 	}
-	if (!ignoreUnknownSymoblicAllele && !all(gr$processed)) {
-		stop(paste("Unrecognised format for variants. Set ignoreUnknownSymoblicAllele=TRUE to ignore variants. Problematic records are: ", paste(names(gr)[!gr$processed], collapse=", ")))
+	if (!ignoreUnknownSymbolicAlleles && !all(gr$processed)) {
+		stop(paste("Unrecognised format for variants. Set ignoreUnknownSymbolicAlleles=TRUE to ignore variants. Problematic records are: ", paste(names(gr)[!gr$processed], collapse=", ")))
 	}
 	# incorporate microhomology and confidence intervals
 	if (!nominalPosition) {

@@ -441,11 +441,22 @@ test_that("findTransitiveCalls precise", {
 		distance_to_traversed_breakpoint=IntegerList(c(0, 101, 101+121), c(0, 121, 121+101)))
 	expect_equal(transdf, resultdf)
 })
-test_that("findTransitiveCalls full", {
-	gridss_file = "C:/dev/colo829/COLO829v001-colov1_gridss_COLO829v001T.gridss.unfiltered.vcf.gz"
-	truth_file = "C:/dev/colo829/truthset_somaticSVs_COLO829.vcf"
-	if (file.exists(gridss_file)) {
-	gridss_vcf = VariantAnnotation::readVcf(gridss_file)
+test_that("findTransitiveCalls long read colo829", {
+	t_vcf = list(
+		truth = readVcf(.testfile("truthset_somaticSVs_COLO829.vcf")),
+		nanosv = readVcf(.testfile("colo829_nanoSV_truth_overlap.vcf")))
+		#gridss = readVcf(.testfile("colo829_gridss_truth_overlap.vcf")))
+	t_bpgr = list()
+	for (n in names(t_vcf)) {
+		t_bpgr[[n]] = breakpointRanges(t_vcf[[n]], inferMissingBreakends=TRUE, ignoreUnknownSymbolicAlleles=TRUE)
 	}
+	t_bpgr$nanosv$insLen = pmax(0, info(t_vcf$nanosv[t_bpgr$nanosv$sourceId])$GAP)
+	transdf = findTransitiveCalls(t_bpgr$nanosv, t_bpgr$truth)
+	expect_equal(4, nrow(transdf))
+	#transitive_files = list(
+	#	truth = "C:/dev/colo829/truthset_somaticSVs_COLO829.vcf",
+	#	pbsv = "C:/dev/colo829/COLO829.somatic.pacbio.pbsv.vcf",
+	#	nanosv = "C:/dev/colo829/COLO829.nanopore.nanosv.vcf",
+	#	sniffles = "C:/dev/colo829/COLO829.nanopore.sniffles.vcf")
+	#gridss = "C:/dev/colo829/COLO829v001-colov1_gridss_COLO829v001T.gridss.unfiltered.vcf.gz")
 })
-

@@ -698,9 +698,10 @@ findTransitiveCalls <- function(
 	transitiveGr$insLen = insLen
 	transitiveGr = transitiveGr[hasPartner(transitiveGr)]
 	transitiveGr$.isImprecise = transitiveGr$.isImprecise | partner(transitiveGr)$.isImprecise
-	transitiveGr$minimumTransitiveLength = ifelse(insLen > 0, pmin(0, insLen - insertionLengthMargin), 0)
+	transitiveGr$minimumTransitiveLength = ifelse(insLen > 0, pmax(0, insLen - insertionLengthMargin), 0)
 	transitiveGr$maximumTransitiveLength = ifelse(insLen > 0, insLen + insertionLengthMargin, ifelse(impreciseTransitiveCalls, maximumImpreciseInsertSize, 0))
 	transitiveGr = transitiveGr[transitiveGr$maximumTransitiveLength > 0]
+	transitiveGr = transitiveGr[hasPartner(transitiveGr)]
 	transitiveGr$ordinal = seq_len(length(transitiveGr))
 	transitiveGr$partnerOrdinal = partner(transitiveGr)$ordinal
 	if (!allowImprecise) {
