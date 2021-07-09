@@ -417,7 +417,7 @@ setMethod("breakpointRanges", "VCF",
 						ifelse(as.logical(strand(ipgr) == "+"), "", "N"))
 					mpgr <- cgr[isMissingPartner,]
 					ipgr <- ipgr[isMissingPartner,]
-					names(ipgr) = paste0("svrecord", length(gr) + 1:length(ipgr), "_bp2")
+					names(ipgr) = paste0("svrecord", length(gr) + seq_len(length(ipgr)), "_bp2")
 					mpgr$partner = names(ipgr)
 					ipgr$partner = names(mpgr)
 					outgr <- c(outgr, mpgr, ipgr)
