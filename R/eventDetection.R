@@ -1,23 +1,6 @@
-#' Detecting nuclear mitochondria fusion events.
-#'
-#' @details
-#' Nuclear mitochondrial fusion (NUMT) is a common event found in human genomes.
-#' This function searches for NUMT events by identifying breakpoints supporting the fusion of
-#' nuclear chromosome and mitochondrial genome. Only BND notations are supported at the current stage.
-#' Possible linked nuclear insertion sites are reported using SV IDs in the candidatePartnerId metadata column.
-#' @param gr A GRanges object
-#' @param nonStandardChromosomes Whether to report insertion sites on non-standard reference 
-#' chromosomes. Default value is set to FALSE.
-#' @param max_ins_dist The maxium distance allowed on the reference genome between the paired insertion sites.
-#' Only intra-chromosomal NUMT events are supported. Default value is 1000.
-#' @return A GRanges object of possible NUMT loci.
-#' @examples
-#' vcf.file <- system.file("extdata", "MT.vcf", package = "StructuralVariantAnnotation")
-#' vcf <- VariantAnnotation::readVcf(vcf.file, "hg19")
-#' gr <- breakpointRanges(vcf, nominalPosition=TRUE)
-#' numt.gr <- numtDetect(gr)
 #' @export
 numtDetect <- function(gr, nonStandardChromosomes=FALSE, max_ins_dist=1000){
+    .Deprecated(new="numtDetect", package="numtDetect", msg="numtDetect is moving into it's own numtDetect package")
     assertthat::assert_that(class(gr)=="GRanges", msg = "gr should be a GRanges object")
     assertthat::assert_that(length(gr)>0, msg = "gr can't be empty")
     if (nonStandardChromosomes==FALSE) {
@@ -95,30 +78,9 @@ numtDetect <- function(gr, nonStandardChromosomes=FALSE, max_ins_dist=1000){
     return(dist)
 }
 
-
-#' Detecting retrotranscript insertion in nuclear genomes.
-#'
-#' @details
-#' This function searches for retroposed transcripts by identifying breakpoints supporting 
-#' intronic deletions and fusions between exons and remote loci.
-#' Only BND notations are supported at the current stage.
-#' @param gr A GRanges object
-#' @param genes TxDb object of genes. hg19 and hg38 are supported in the current version.
-#' @param maxgap The maxium distance allowed on the reference genome between the paired exon boundries.
-#' @param minscore The minimum proportion of intronic deletions of a transcript should be identified.
-#' @return A GRangesList object, named insSite and rt, reporting breakpoints supporting insert sites and 
-#' retroposed transcripts respectively. 'exon' and 'txs' in the metadata columns report exon_id and transcript_name from the 'genes' object.
-#' @examples
-#' library(TxDb.Hsapiens.UCSC.hg19.knownGene)
-#' genes <- TxDb.Hsapiens.UCSC.hg19.knownGene
-#' vcf.file <- system.file("extdata", "diploidSV.vcf",
-#'                          package = "StructuralVariantAnnotation")
-#' vcf <- VariantAnnotation::readVcf(vcf.file, "hg19")
-#' gr <- breakpointRanges(vcf, nominalPosition=TRUE)
-#' rt <- rtDetect(gr, genes, maxgap=30, minscore=0.6)
 #' @export
-#' 
 rtDetect <- function(gr, genes, maxgap=100, minscore=0.3){
+    .Deprecated(new="rtDetect", package="rtDetect", msg="rtDetect is moving into it's own rtDetect package")
     #message("rtDetect")
     #check args
     assertthat::assert_that(class(gr)=="GRanges", msg = "gr should be a GRanges object")
