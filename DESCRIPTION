@@ -2,8 +2,7 @@ Package: StructuralVariantAnnotation
 Type: Package
 Title: Variant annotations for structural variants
 Version: 1.9.0
-Date: 2020-04-15
-Maintainer: Bioconductor Package Maintainer <maintainer@bioconductor.org>
+Date: 2021-07-09
 Authors@R: c(
 	person("Daniel", "Cameron", email="maintainer@bioconductor.org", role=c("aut", "cre"), comment=c(ORCID = "0000-0002-0951-7116")),
 	person("Ruining", "Dong", role=c("aut"), comment=c(ORCID = "0000-0003-1433-0484")))
@@ -22,7 +21,7 @@ Depends:
 	rtracklayer,
 	VariantAnnotation,
 	BiocGenerics,
-	R (>= 3.6.0)
+	R (>= 4.1.0)
 Imports:
 	assertthat,
 	Biostrings,
