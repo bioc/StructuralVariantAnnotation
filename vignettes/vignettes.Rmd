@@ -32,9 +32,8 @@ The *StructuralVariationAnnotation* package can be installed from *Bioconductor*
 
 ```{r installation, eval=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
+    #install.packages("BiocManager")
 BiocManager::install("StructuralVariantAnnotation")
-```
 library(StructuralVariantAnnotation)
 ```
 
@@ -117,7 +116,7 @@ Finally, it provides a unified representation format regardless of the format us
 
 Using our previous example, we can see that the direct sequence and symbolic representations require multiple rows to represent:
 ```{r samplevariant,warning=FALSE, message=FALSE}
-library(StructuralVariantAnnotation)
+suppressPackageStartupMessages(library(StructuralVariantAnnotation))
 vcf <- VariantAnnotation::readVcf(system.file("extdata", "representations.vcf", package = "StructuralVariantAnnotation"))
 gr <- c(breakpointRanges(vcf), breakendRanges(vcf))
 gr
@@ -158,7 +157,7 @@ These breakpoint positional ambiguity bounds can be removed by specifying `nomin
 ## Creating a breakpoint GRanges object
 
 ```{r input, warning=FALSE, message=FALSE}
-library(StructuralVariantAnnotation))
+library(StructuralVariantAnnotation)
 vcf <- VariantAnnotation::readVcf(system.file("extdata", "gridss.vcf", package = "StructuralVariantAnnotation"))
 gr <- breakpointRanges(vcf)
 ```
@@ -269,7 +268,49 @@ ggplot(as.data.frame(svgr) %>%
   labs(title="NA12878 chr22 CREST and HYDRA\nSudmunt 2015 truth set")
 ```
 
-### Converting between BEDPE, Pairs, and breakpoint GRanges
+## Equivalent variants
+
+Converting to a breakpoint-centric notation does not fully resolve the problem of identical variants reported in different VCF notations.
+There are two additional commonly encountered notations that required additional handling, especially when comparing short and long read caller variant calls.
+
+### Insertion - Duplication equivalence
+
+Tandem duplications under 1,000bp are usually reported as insertion events by long read callers, but as duplication events by short read caller.
+These notations are equivalent but typical variant comparisons such as `findBreakpointOverlaps()` will not match these variants.
+The `findInsDupOverlaps()` function can be used to identify duplications and insertions that are equivalent.
+
+
+### Transitive breakpoints
+
+Transitive breakpoints are breakpoints that can be explained by multiple breakpoints.
+Identifying transitive breakpoints is important not only for matching short and long read call sets but also for the correct downstream interpretation of genomic rearrangements.
+Call sets that contain both transitive breakpoints and their constituent breakpoints are internally inconsistent which in turn causes incorrect downstream karyotype reconstructions.
+
+There are two type of transitive breakpoints:
+
+- Imprecise breakpoints that span one or more small DNA fragments.
+
+For example If DNA segments A, B, C are rearranged in an A-B-C configuration and the B segment is short, a short read caller may report an A-C breakpoints.
+This imprecise A-C breakpoint supported only by read pairs, can be explained by the precise A-B and B-C breakpoints.
+
+- Precise breakpoints with breakpoint inserted sequence
+
+These are similar in form to imprecise breakpoints in that a complex A-B-C rearrangement is reported as an A-C breakpoint.
+The different between imprecise and precise transitive breakpoints is that for precise breakpoints, the B segments is not missing, but is reported as inserted sequence between the breakpoints.
+This is a relatively common occurrence in long read call sets as long read aligners are unable to place short DNA segments due to the high indel error rate of long read calling.
+
+For example, NanoSV calling of Nanopore sequencing of the COLO829 cell line, results in multiple transitive SV calls:
+
+```{r}
+colo829_truth_bpgr  <- breakpointRanges(readVcf(system.file("extdata", "truthset_somaticSVs_COLO829.vcf", package = "StructuralVariantAnnotation")))
+colo829_nanosv_bpgr <- breakpointRanges(readVcf(system.file("extdata", "colo829_nanoSV_truth_overlap.vcf", package = "StructuralVariantAnnotation")), inferMissingBreakends=TRUE, ignoreUnknownSymbolicAlleles=TRUE)
+findTransitiveCalls(colo829_nanosv_bpgr, colo829_truth_bpgr)
+```
+
+Note that since `StructuralVariantAnnotation` treats both breakends equally, each transitive path will have two results.
+One for the path traversing from one breakend, another for the traversal in the opposite direction.
+
+## Converting between BEDPE, Pairs, and breakpoint GRanges
 
 The package supports converting GRanges objects to BEDPE files.
 The BEDPE format is defined by [`bedtools`](https://bedtools.readthedocs.io/en/latest/content/general-usage.html).
