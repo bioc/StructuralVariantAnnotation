@@ -41,7 +41,6 @@ Suggests:
 	plyranges,
 	ggbio,
 	biovizBase,
-	circlize,
 	tictoc,
 	GenomeInfoDb,
 	IRanges,

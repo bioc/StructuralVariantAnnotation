@@ -329,22 +329,8 @@ bedpe.gr  <- pairs2breakpointgr(rtracklayer::import("example.bedpe"))
 ## Visualising breakpoint pairs via circos plots
 
 One way of visualising paired breakpoints is by circos plots.
-Here we use the package [`circlize`](https://doi.org/10.1093/bioinformatics/btu393) to demonstrate 
-breakpoint visualisation.
-The `bedpe2circos` function takes BEDPE-formatted dataframes (see `breakpointgr2bedpe()`) and plotting parameters for the `circos.initializeWithIdeogram()` and `circos.genomicLink()` functions from `circlize`.
 
-To generate a simple circos plot of paired breakpoints:
-```{r}
-suppressPackageStartupMessages(require(circlize))
-colo829_bpgr_with_chr_prefix <- colo829_bpgr
-seqlevelsStyle(colo829_bpgr_with_chr_prefix) <- "UCSC"
-pairs <- breakpointgr2pairs(colo829_bpgr_with_chr_prefix)
-circos.initializeWithIdeogram()
-circos.genomicLink(as.data.frame(S4Vectors::first(pairs)), as.data.frame(S4Vectors::second(pairs)))
-circos.clear()
-```
-
-Alternatively, the plotting package `ggbio` provides flexible track functions which bind with `ggplot2` objects.
+Here, we use the plotting package `ggbio` which provides flexible track functions which bind with `ggplot2` objects.
 It takes `GRanges` objects as input and supports circos plots.
 To plot structural variant breakpoints in a circos plot using `ggbio`, we need to first prepare the breakpoint GRanges.
 The function requires a special column, indicating the end of the link using GRanges format.
