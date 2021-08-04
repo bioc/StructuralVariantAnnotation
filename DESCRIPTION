@@ -15,7 +15,7 @@ Description: StructuralVariantAnnotation provides a framework for
 	of popular callers as well as functions for dealing with 
 	breakpoints involving two separate genomic loci encoded as
 	GRanges objects.
-License: GPL-3
+License: GPL-3 + file LICENSE
 Depends:
 	GenomicRanges,
 	rtracklayer,
