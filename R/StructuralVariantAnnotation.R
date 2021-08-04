@@ -22,6 +22,10 @@
 #' @import rtracklayer
 #' @import Biostrings
 #' @import GenomicRanges
+#' @import GenomeInfoDb
+#' @import IRanges
+#' @import S4Vectors
+#' @import SummarizedExperiment
 #' @importFrom dplyr %>%
 #' @importFrom methods as is setMethod setGeneric
 #' @importFrom rlang .data

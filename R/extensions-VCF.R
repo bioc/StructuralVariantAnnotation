@@ -1,3 +1,4 @@
+#' @noRd
 .dispatchPerAllele_CollapsedVCF <- function(FUN, x, singleAltOnly) {
     alt <- alt(x)
     flat <- BiocGenerics::unlist(alt, use.names=FALSE)
@@ -8,6 +9,7 @@
     else
         any(lst)
 }
+#' @noRd
 .dispatchPerAllele_ExpandedVCF <- function(FUN, x) {
     alt <- alt(x)
     flat <- BiocGenerics::unlist(alt, use.names=FALSE)
@@ -50,6 +52,7 @@ setMethod("isSymbolic", "ExpandedVCF",
 #' @param r Reference vector.
 #' @param a ALT vector.
 #' @return A logical list of which the length is the same with the input object.
+#' @noRd
 .isSymbolic <- function(r, a) {
     result <- grepl("<", a, fixed=TRUE) |
         grepl("[", a, fixed=TRUE) |
@@ -73,7 +76,8 @@ setGeneric("isStructural", signature="x",
            function(x, ...)
                standardGeneric("isStructural")
 )
-#' @describeIn isStructural Determining whether a CollapsedVCF object is a 
+#' @describeIn isStructural
+#' Determining whether a CollapsedVCF object is a 
 #' strucrual variant. Only single ALT values are accepted.
 #' @param singleAltOnly Whether only single ALT values are accepted. Default is
 #' set to TRUE.
@@ -87,6 +91,7 @@ setMethod("isStructural", "ExpandedVCF",
           function(x, ...)
               .dispatchPerAllele_ExpandedVCF(.isStructural, x)
 )
+#' @noRd
 .isStructural <- function(ref, alt) {
 	lengthDiff <- S4Vectors::elementNROWS(ref) != IRanges::nchar(alt)
 	if (is(alt, "DNAStringSet")) {
@@ -104,6 +109,7 @@ setMethod("isStructural", "ExpandedVCF",
 #'
 #' @param vcf VCF object
 #' @return Structural variant lengths of the first allele.
+#' @noRd
 .svLen <- function(vcf) {
 	assertthat::assert_that(.hasSingleAllelePerRecord(vcf))
     r <- ref(vcf)
@@ -115,6 +121,7 @@ setMethod("isStructural", "ExpandedVCF",
     return(result)
 }
 
+#' @noRd
 .hasSingleAllelePerRecord <- function(vcf) {
 	assertthat::assert_that(is(vcf, "VCF"))
     all(S4Vectors::elementNROWS(alt(vcf)) == 1)
@@ -595,9 +602,11 @@ setMethod("breakendRanges", "VCF",
 #                             placeholderName="svrecord", suffix="_bp", 
 #                             info_columns=NULL) {}
 
+#' @noRd
 .hasMetadataInfo <- function(vcf, field) {
 	return(field %in% row.names(info(header(vcf))))
 }
+#' @noRd
 .expectMetadataInfo <- function(vcf, field, number, type) {
 	assertthat::assert_that(.hasMetadataInfo(vcf, field))
 	row <- info(header(vcf))[field,]
@@ -662,6 +671,7 @@ align_breakpoints <- function(vcf, align=c("centre"), is_higher_breakend=names(v
 	info(vcf)$CIRPOS = NULL # TODO: remove CIRPOS from GRIDSS entirely
 	return(vcf)
 }
+#' @noRd
 .vcfAltToStrandPair = function(alt) {
 	chralt = unlist(alt)
 	ifelse(startsWith(chralt, "."), "-",

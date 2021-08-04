@@ -3,6 +3,7 @@
 #' @param filename Name of the test file.
 #' @param location Directory of the test file.
 #' @return Returns the file to be tested.
+#' @noRd
 .testfile <- function(filename, location="extdata") {
     if (file.exists(filename)) return(filename)
     f <- system.file(location, filename, package="StructuralVariantAnnotation")
@@ -15,6 +16,7 @@
 #' Loading a VCF containing the given records
 #' @param record string vector of record to write
 #' @return A VCF object.
+#' @noRd
 .testrecord <- function(record) {
     filename=tempfile(fileext=".vcf")
     write(paste0(c(

@@ -400,7 +400,7 @@ test_that(".traversable_segments", {
 		segmentEndAdditionalLength=c(5, 0, 0, 5),
 		segmentEndInternalOrdinal=c(6, 3, 3, 6),
 		segmentEndExternalOrdinal=c(5, 4, 4, 5))
-	expecteddf = bind_rows(expecteddf, expecteddf %>%
+	expecteddf = dplyr::bind_rows(expecteddf, expecteddf %>%
 		dplyr::select(
 			segmentStartExternalOrdinal=segmentEndExternalOrdinal,
 			segmentEndExternalOrdinal=segmentStartExternalOrdinal,

@@ -1,6 +1,24 @@
+#' Detecting nuclear mitochondria fusion events.
+#'
+#' @details
+#' Nuclear mitochondrial fusion (NUMT) is a common event found in human genomes.
+#' This function searches for NUMT events by identifying breakpoints supporting the fusion of
+#' nuclear chromosome and mitochondrial genome. Only BND notations are supported at the current stage.
+#' Possible linked nuclear insertion sites are reported using SV IDs in the candidatePartnerId metadata column.
+#' @param gr A GRanges object
+#' @param nonStandardChromosomes Whether to report insertion sites on non-standard reference 
+#' chromosomes. Default value is set to FALSE.
+#' @param max_ins_dist The maxium distance allowed on the reference genome between the paired insertion sites.
+#' Only intra-chromosomal NUMT events are supported. Default value is 1000.
+#' @return A GRanges object of possible NUMT loci.
+#' @examples
+#' vcf.file <- system.file("extdata", "MT.vcf", package = "StructuralVariantAnnotation")
+#' vcf <- VariantAnnotation::readVcf(vcf.file, "hg19")
+#' gr <- breakpointRanges(vcf, nominalPosition=TRUE)
+#' numt.gr <- numtDetect(gr)
 #' @export
 numtDetect <- function(gr, nonStandardChromosomes=FALSE, max_ins_dist=1000){
-    .Deprecated(new="numtDetect", package="numtDetect", msg="numtDetect is moving into it's own numtDetect package")
+    .Deprecated(new="numtDetect", package="numtDetect", msg="numtDetect is moving into it's own svaNumt package in BioConductor 3.14")
     assertthat::assert_that(class(gr)=="GRanges", msg = "gr should be a GRanges object")
     assertthat::assert_that(length(gr)>0, msg = "gr can't be empty")
     if (nonStandardChromosomes==FALSE) {
@@ -20,7 +38,7 @@ numtDetect <- function(gr, nonStandardChromosomes=FALSE, max_ins_dist=1000){
             candidatePartnerIds = names(numt.gr[seqnames(numt.gr)==seq & abs(start(numt.gr)-pos)< max_ins_dist & strand(numt.gr)!=std])
             candidatePartnerId.list[[name]] = ifelse(length(candidatePartnerIds)>0, candidatePartnerIds, NA)
             # if (length(candidatePartner.gr)>0) {
-            #     candidatePartnerId = CharacterList(names(candidatePartner.gr))
+            #     candidatePartnerId = IRanges::CharacterList(names(candidatePartner.gr))
             #     #candidatePartnerId = paste(candidatePartner.gr$sourceId, collapse = ",")
             #     #print(candidatePartnerId)
             #     numt.gr$candidatePartnerId[i] = candidatePartnerId
@@ -31,7 +49,7 @@ numtDetect <- function(gr, nonStandardChromosomes=FALSE, max_ins_dist=1000){
         }
         #candidatePartnerId.list <- IRanges::CharacterList(candidatePartnerId.list)
         numt.gr <- c(numt.gr, gr[names(partner(gr)) %in% names(numt.gr)])
-        numt.gr$candidatePartnerId <- rep(CharacterList(NA), length(numt.gr))
+        numt.gr$candidatePartnerId <- rep(IRanges::CharacterList(NA), length(numt.gr))
         for (name in names(candidatePartnerId.list)) {
             numt.gr[name]$candidatePartnerId <- candidatePartnerId.list[[name]]
             numt.gr[names(partner(numt.gr))==name]$candidatePartnerId = candidatePartnerId.list[[name]]
@@ -53,6 +71,7 @@ numtDetect <- function(gr, nonStandardChromosomes=FALSE, max_ins_dist=1000){
 #' @param bnd.end ending breakend of the MT sequence.
 #' @param chrM.len length of the reference MT genome.
 #' @return The length of the MT sequence. When the candidate MT BNDs can't be linked as one sequence, the returned value is NA.
+#' @noRd
 .mtLen <- function(bnd.start, bnd.end, chrM.len){
     bnd.start.str <- stringr::str_match(bnd.start, "(.*)(\\[|])(.*)(:)(.+)(\\[|])(.*)")
     bnd.end.str <- stringr::str_match(bnd.end, "(.*)(\\[|])(.*)(:)(.+)(\\[|])(.*)")
@@ -77,10 +96,21 @@ numtDetect <- function(gr, nonStandardChromosomes=FALSE, max_ins_dist=1000){
     }
     return(dist)
 }
-
+#' Detecting retrotranscript insertion in nuclear genomes.
+#'
+#' @details
+#' This function searches for retroposed transcripts by identifying breakpoints supporting 
+#' intronic deletions and fusions between exons and remote loci.
+#' Only BND notations are supported at the current stage.
+#' @param gr A GRanges object
+#' @param genes TxDb object of genes. hg19 and hg38 are supported in the current version.
+#' @param maxgap The maxium distance allowed on the reference genome between the paired exon boundries.
+#' @param minscore The minimum proportion of intronic deletions of a transcript should be identified.
+#' @return A GRangesList object, named insSite and rt, reporting breakpoints supporting insert sites and 
+#' retroposed transcripts respectively. 'exon' and 'txs' in the metadata columns report exon_id and transcript_name from the 'genes' object.
 #' @export
 rtDetect <- function(gr, genes, maxgap=100, minscore=0.3){
-    .Deprecated(new="rtDetect", package="rtDetect", msg="rtDetect is moving into it's own rtDetect package")
+    .Deprecated(new="rtDetect", package="rtDetect", msg="rtDetect is moving into it's own svaRetro package in BioConductor 3.14")
     #message("rtDetect")
     #check args
     assertthat::assert_that(class(gr)=="GRanges", msg = "gr should be a GRanges object")
@@ -110,8 +140,8 @@ rtDetect <- function(gr, genes, maxgap=100, minscore=0.3){
     
     # 2.return breakpoints of insertionSite-exon 
     hits.insSite <- hits[!same.tx,] %>%
-        bind_rows(.,anti_join(dplyr::as_tibble(hits.start), dplyr::as_tibble(hits.end), by='queryHits')) %>%
-        bind_rows(.,anti_join(dplyr::as_tibble(hits.end), dplyr::as_tibble(hits.start), by='queryHits'))
+        dplyr::bind_rows(.data, dplyr::anti_join(dplyr::as_tibble(hits.start), dplyr::as_tibble(hits.end), by='queryHits')) %>%
+        dplyr::bind_rows(.data, dplyr::anti_join(dplyr::as_tibble(hits.end), dplyr::as_tibble(hits.start), by='queryHits'))
     
     # hits.insSite <- rbind(hits[!same.tx,],
     #                       anti_join(dplyr::as_tibble(hits.start), dplyr::as_tibble(hits.end), by='queryHits'),
@@ -161,8 +191,8 @@ rtDetect <- function(gr, genes, maxgap=100, minscore=0.3){
         
         # 4.filter insertion site junctions, reduce duplications
         #junctions with only one side overlapping with exons:
-        idx <- bind_rows(anti_join(dplyr::as_tibble(hits.start), dplyr::as_tibble(hits.end), by='queryHits'),
-                         anti_join(dplyr::as_tibble(hits.end), dplyr::as_tibble(hits.start), by='queryHits'))
+        idx <- dplyr::bind_rows(dplyr::anti_join(dplyr::as_tibble(hits.start), dplyr::as_tibble(hits.end), by='queryHits'),
+                                dplyr::anti_join(dplyr::as_tibble(hits.end), dplyr::as_tibble(hits.start), by='queryHits'))
         
         insSite.gr <- c(gr[hits[!same.tx,]$queryHits], partner(gr)[hits[!same.tx,]$queryHits], gr[idx$queryHits])
         insSite.gr$exons <- c(exons[hits[!same.tx,]$subjectHits.x]$exon_id, exons[hits[!same.tx,]$subjectHits.y]$exon_id,
@@ -196,6 +226,7 @@ rtDetect <- function(gr, genes, maxgap=100, minscore=0.3){
 #' @param gr A GRanges object
 #' @param names A vector of granges names.
 #' @return A list of vectors. Each vector is named with the name of the corresponding granges.
+#' @noRd
 .combineMatchingTranscripts <- function(gr, names){
     names <- unique(names)
     txs.list <- vector(mode="list", length=length(names))
@@ -214,6 +245,7 @@ rtDetect <- function(gr, genes, maxgap=100, minscore=0.3){
 #' @param genes TxDb object of genes. hg19 and hg38 are supported in the current version.
 #' @param transcripts.col A vector of transcript names.
 #' @return A dataframe with two columns, tx_name and score. 
+#' @noRd
 .scoreByTranscripts <- function(genes, transcripts.col){
     overlapIntron.df <- as.data.frame(table(transcripts.col)/2)
     colnames(overlapIntron.df) <- c("tx_name", "count")
