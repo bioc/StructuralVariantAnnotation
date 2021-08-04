@@ -72,7 +72,7 @@ Breakpoint-level column names will override breakend-level column names.
 vcf.file <- system.file("extdata", "gridss.vcf", package = "StructuralVariantAnnotation")
 bpgr <- breakpointRanges(VariantAnnotation::readVcf(vcf.file))
 pairgr <- breakpointgr2pairs(bpgr)
-rtracklayer::export(pairgr, con="example.bedpe")
+#rtracklayer::export(pairgr, con="example.bedpe")
 bedpe.file <- system.file("extdata", "gridss.bedpe", package = "StructuralVariantAnnotation")
 bedpe.pairs <- rtracklayer::import(bedpe.file)
 bedpe.bpgr <- pairs2breakpointgr(bedpe.pairs)
