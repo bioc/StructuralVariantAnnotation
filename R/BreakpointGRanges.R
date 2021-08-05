@@ -33,7 +33,8 @@ partner <- function(gr, selfPartnerSingleBreakends=FALSE) {
 #' @return True/False for each row in the breakpoint GRanges
 #' @examples
 #' #Subset to chromosome 6 intra-chromosomal events \code{vcf}
-#' vcf.file <- system.file("extdata", "COLO829T.purple.sv.ann.vcf.gz", package = "StructuralVariantAnnotation")
+#' vcf.file <- system.file("extdata", "COLO829T.purple.sv.ann.vcf.gz",
+#'   package = "StructuralVariantAnnotation")
 #' vcf <- VariantAnnotation::readVcf(vcf.file)
 #' gr <- breakpointRanges(vcf)
 #' gr <- gr[seqnames(gr) == "6"]
@@ -101,7 +102,7 @@ findBreakpointOverlaps <- function(query, subject, maxgap=-1L, minoverlap=0L, ig
   localhits = findOverlaps(query, subject, maxgap=maxgap, minoverlap=minoverlap, type="any", select="all", ignore.strand=ignore.strand)
   remotehits = findOverlaps(pquery, squery, maxgap=maxgap, minoverlap=minoverlap, type="any", select="all", ignore.strand=ignore.strand)
   ## duplicated() version:
-  #hits = Hits(c(queryHits(localhits), queryHits(remotehits)), c(subjectHits(localhits), subjectHits(remotehits)), nLnode=nLnode(localhits), nRnode=nRnode(localhits), sort.by.query=TRUE)
+  #hits = Hits(c(S4Vectors::queryHits(localhits), S4Vectors::queryHits(remotehits)), c(S4Vectors::subjectHits(localhits), S4Vectors::subjectHits(remotehits)), nLnode=nLnode(localhits), nRnode=nRnode(localhits), sort.by.query=TRUE)
   #hits = hits[duplicated(hits)]
   
   ## intersect() version:
@@ -115,14 +116,14 @@ findBreakpointOverlaps <- function(query, subject, maxgap=-1L, minoverlap=0L, ig
   #	dplyr::filter(!is.na(dplyr::lead(.$queryHits)) & !is.na(dplyr::lead(.$subjectHits)) & dplyr::lead(.$queryHits) == .$queryHits & dplyr::lead(.$subjectHits) == .$subjectHits)
   
   ## dplyr() exploiting the sorted nature of the findOverlaps():
-  #hits = Hits(c(queryHits(localhits), queryHits(remotehits)), c(subjectHits(localhits), subjectHits(remotehits)), nLnode=nLnode(localhits), nRnode=nRnode(localhits), sort.by.query=TRUE)
-  #queryLead  = dplyr::lead(queryHits(hits))
-  #querySubject  = dplyr::lead(queryHits(hits))
+  #hits = Hits(c(S4Vectors::queryHits(localhits), S4Vectors::queryHits(remotehits)), c(S4Vectors::subjectHits(localhits), S4Vectors::subjectHits(remotehits)), nLnode=nLnode(localhits), nRnode=nRnode(localhits), sort.by.query=TRUE)
+  #queryLead  = dplyr::lead(S4Vectors::queryHits(hits))
+  #querySubject  = dplyr::lead(S4Vectors::queryHits(hits))
   #hits = hits[
   #	!is.na(queryLead) &d
   #	!is.na(querySubject) &
-  #	queryLead == queryHits(hits) &
-  #	querySubject == subjectHits(hits)]
+  #	queryLead == S4Vectors::queryHits(hits) &
+  #	querySubject == S4Vectors::subjectHits(hits)]
   if (!is.null(sizemargin) && !is.na(sizemargin)) {
     # take into account confidence intervals when calculating event size
     callwidth <- .distance(query, pquery)
@@ -146,6 +147,7 @@ findBreakpointOverlaps <- function(query, subject, maxgap=-1L, minoverlap=0L, ig
   return(hits)
 }
 # TODO: new function to annotate a Hits object with sizeerror, localbperror, and remotebperror
+#' @noRd
 .distance <- function(r1, r2) {
   return(data.frame(
     min=pmax(0, pmax(start(r1), start(r2)) - pmin(end(r1), end(r2))),
@@ -214,7 +216,7 @@ countBreakpointOverlaps <- function(querygr, subjectgr, countOnlyBest=FALSE,
 #' vcf.file <- system.file("extdata", "gridss.vcf", package = "StructuralVariantAnnotation")
 #' bpgr <- breakpointRanges(VariantAnnotation::readVcf(vcf.file))
 #' pairgr <- breakpointgr2pairs(bpgr)
-#' rtracklayer::export(pairgr, con="example.bedpe")
+#' #rtracklayer::export(pairgr, con="example.bedpe")
 #' @return Pairs GRanges object suitable for export to BEDPE by rtracklayer
 #' @rdname pairs2breakpointgr
 #' @export
@@ -242,6 +244,7 @@ breakpointgr2pairs <- function(
   }
   return(pairgr)
 }
+#' @noRd
 .assertValidBreakpointGRanges <- function(bpgr, friendlyErrorMessage="", allowSingleBreakends=TRUE) {
   if (is.null(names(bpgr))) {
     stop(paste0(friendlyErrorMessage, "Breakpoint GRanges require names"))
@@ -375,6 +378,7 @@ extractReferenceSequence <- function(gr, ref, anchoredBases, followingBases=anch
 #' @param ref reference 
 #' @param position only 'middle' position is accepted.
 #' @return A constricted GRanges object.
+#' @noRd
 .constrict <- function(gr, ref=NULL,position="middle") {
 	isLower <- start(gr) < start(partner(gr))
 	# Want to call a valid breakpoint
@@ -476,6 +480,7 @@ calculateReferenceHomology <- function(gr, ref,
 #' @param insSeq insert sequence of the GRanges.
 #' @param ref reference sequence of the GRanges.
 #' @return breakendAlt or breakpointAlt depending on whether the variant is partnered.
+#' @noRd
 .toVcfBreakendNotationAlt = function(gr, insSeq=gr$insSeq, ref=gr$REF) {
 	assertthat::assert_that(all(width(gr) == 1))
 	assertthat::assert_that(!is.null(insSeq))
@@ -609,13 +614,14 @@ findInsDupOverlaps <- function(query, subject, maxgap=-1L, maxsizedifference=0L)
 		qhits=c(qins_to_sdup$queryHits, sins_to_qdup$subjectHits),
 		shits=c(qins_to_sdup$subjectHits, sins_to_qdup$queryHits))
 	# add upper to upper match
-	bothhits = Hits(
+	bothhits = S4Vectors::Hits(
 		from=c(lowhits$qhits, pquery$ordinal[lowhits$qhits]),
 		to=c(lowhits$shits, psubject$ordinal[lowhits$shits]),
 		nLnode=length(query),
 		nRnode=length(subject))
 	return(bothhits)
 }
+#' @noRd
 .findOverlaps_queryIns_subjectDup <- function(query, subject, psubject , maxgap=-1L, maxsizedifference=0L) {
 	subject$HighEndPosition = end(psubject)
 	subject = subject[subject$set == "DUP" & subject$isLowBreakend]
@@ -624,12 +630,12 @@ findInsDupOverlaps <- function(query, subject, maxgap=-1L, maxsizedifference=0L)
 	start(subject) = start(subject) - 1
 	query = query[query$set == "INS" & query$isLowBreakend]
 	hits = findOverlaps(query, subject, maxgap=maxgap, ignore.strand=TRUE)
-	hits = hits[abs(query$sel[queryHits(hits)] - subject$sel[subjectHits(hits)]) <= maxsizedifference]
+	hits = hits[abs(query$sel[S4Vectors::queryHits(hits)] - subject$sel[S4Vectors::subjectHits(hits)]) <= maxsizedifference]
 	# TODO: filter by 
 	# Translate back to ordinals of what was passed in to us
 	return(data.frame(
-		queryHits=query$ordinal[queryHits(hits)],
-		subjectHits=subject$ordinal[subjectHits(hits)]))
+		queryHits=query$ordinal[S4Vectors::queryHits(hits)],
+		subjectHits=subject$ordinal[S4Vectors::subjectHits(hits)]))
 }
 #' Identifies potential transitive imprecise calls that can be explained by
 #' traversing multiple breakpoints.
@@ -650,13 +656,16 @@ findInsDupOverlaps <- function(query, subject, maxgap=-1L, maxsizedifference=0L)
 #' @param positionalMargin 
 #' Allowable margin of error when matching call positional overlaps.
 #' A non-zero margin allows for matching of breakpoint with imperfect homology.
-#' @param lengthMargin
+#' @param insertionLengthMargin
 #' Allowable difference in length between the inserted sequence and the traversed
 #' path length.
 #' Defaults to 50bp to allow for long read indel errors.
 #' @param insLen
 #' Integer vector of same length as `transitiveGr` indicating the number
 #' of bases inserted at the breakpoint.
+#' 
+#' Defaults to transitiveGr$insLen which will be present if the GRanges
+#' was loaded from a VCF using breakpointRanges()
 #' @param impreciseTransitiveCalls
 #' Boolean vector of same length as `transitiveGr` indicating which calls
 #' are imprecise calls. Defaults to calls with a non-zero interval size
@@ -689,8 +698,7 @@ findTransitiveCalls <- function(
 		insLen=transitiveGr$insLen,
 		impreciseTransitiveCalls=(transitiveGr$HOMLEN == 0 | is.null(transitiveGr$HOMLEN)) & start(transitiveGr) != end(transitiveGr),
 		impreciseSubjectCalls=(subjectGr$HOMLEN == 0 | is.null(subjectGr$HOMLEN)) & start(subjectGr) != end(subjectGr),
-		allowImprecise=FALSE,
-		filterSelf=TRUE) {
+		allowImprecise=FALSE) {
 	if (is.null(insLen)) {
 		stop("Missing insLen")
 	}
@@ -720,25 +728,25 @@ findTransitiveCalls <- function(
 	# transitive breakpoint must occur within the confidence interval bounds
 	terminal_matches = as.data.frame(GenomicRanges::findOverlaps(transitiveGr, subjectGr, maxgap=positionalMargin, ignore.strand=FALSE)) %>%
 		dplyr::select(
-			terminalStartOrdinal=queryHits,
-			transitiveOrdinal=subjectHits) %>%
+			terminalStartOrdinal=.data$queryHits,
+			transitiveOrdinal=.data$subjectHits) %>%
 		dplyr::mutate(
-			terminalEndOrdinal=transitiveGr$partnerOrdinal[terminalStartOrdinal])
+			terminalEndOrdinal=transitiveGr$partnerOrdinal[.data$terminalStartOrdinal])
 	current_traversals = dplyr::inner_join(terminal_matches, terminal_matches, by=c("terminalStartOrdinal"="terminalEndOrdinal"), suffix=c(".start", ".end")) %>%
 		dplyr::select(
-			terminalStartOrdinal,
-			currentTraverseInOrdinal=transitiveOrdinal.start,
-			endingTraverseOutOrdinal=transitiveOrdinal.end,
-			terminalEndOrdinal) %>%
+			terminalStartOrdinal=.data$terminalStartOrdinal,
+			currentTraverseInOrdinal=.data$transitiveOrdinal.start,
+			endingTraverseOutOrdinal=.data$transitiveOrdinal.end,
+			terminalEndOrdinal=.data$terminalEndOrdinal) %>%
 		dplyr::mutate(
-			currentTraverseOutOrdinal=subjectGr$partnerOrdinal[currentTraverseInOrdinal],
-			distance=subjectGr$insLen[currentTraverseInOrdinal],
+			currentTraverseOutOrdinal=subjectGr$partnerOrdinal[.data$currentTraverseInOrdinal],
+			distance=subjectGr$insLen[.data$currentTraverseInOrdinal],
 			# TAB is used as a placeholder as it's a disallowed character in VCF and causes a parsing error in BEDPE
-			breakpointsTraversed=paste0(names(subjectGr)[currentTraverseInOrdinal], "	"),
-			traversedDistances=paste0(distance, "	"),
+			breakpointsTraversed=paste0(names(subjectGr)[.data$currentTraverseInOrdinal], "	"),
+			traversedDistances=paste0(.data$distance, "	"),
 			traversedBreakpoints=1,
-			minimumTransitiveLength=transitiveGr$minimumTransitiveLength[terminalStartOrdinal],
-			maximumTransitiveLength=transitiveGr$maximumTransitiveLength[terminalStartOrdinal])
+			minimumTransitiveLength=transitiveGr$minimumTransitiveLength[.data$terminalStartOrdinal],
+			maximumTransitiveLength=transitiveGr$maximumTransitiveLength[.data$terminalStartOrdinal])
 	
 	resultdf = data.frame(
 		terminalStartOrdinal=integer(0),
@@ -756,73 +764,81 @@ findTransitiveCalls <- function(
 		while (nrow(current_traversals) > 0) {
 			# Terminal paths
 			current_traversals = current_traversals %>%
-				dplyr::filter(distance <= maximumTransitiveLength & traversedBreakpoints <= maximumTraversedBreakpoints) %>%
-				dplyr::mutate(is_complete_path=currentTraverseOutOrdinal == endingTraverseOutOrdinal)
+				dplyr::filter(.data$distance <= .data$maximumTransitiveLength & .data$traversedBreakpoints <= maximumTraversedBreakpoints) %>%
+				dplyr::mutate(is_complete_path=.data$currentTraverseOutOrdinal == .data$endingTraverseOutOrdinal)
 			resultdf = dplyr::bind_rows(
 				resultdf,
 				current_traversals %>% dplyr::filter(
-					is_complete_path &
-					distance >= minimumTransitiveLength &
-					traversedBreakpoints >= minimumTraversedBreakpoints))
+					.data$is_complete_path &
+					.data$distance >= .data$minimumTransitiveLength &
+					.data$traversedBreakpoints >= minimumTraversedBreakpoints))
 			# traverse
 			current_traversals = current_traversals %>%
-				dplyr::filter(!is_complete_path) %>%
+				dplyr::filter(!.data$is_complete_path) %>%
 				dplyr::inner_join(traversable_segments, by=c("currentTraverseInOrdinal"="segmentStartExternalOrdinal")) %>%
 				dplyr::mutate(
-					currentTraverseInOrdinal=segmentEndInternalOrdinal,
-					currentTraverseOutOrdinal=segmentEndExternalOrdinal,
-					distance=distance + segmentLength + segmentEndAdditionalLength,
-					traversedBreakpoints=traversedBreakpoints + 1,
-					traversedDistances=paste0(traversedDistances, distance, "	"),
-					breakpointsTraversed=paste0(breakpointsTraversed, names(subjectGr)[segmentEndInternalOrdinal], "	")) %>%
-				dplyr::select(
-					-segmentStartInternalOrdinal,
-					-segmentLength,
-					-segmentEndInternalOrdinal,
-					-segmentEndExternalOrdinal,
-					-segmentStartAdditionalLength,
-					-segmentEndAdditionalLength)
+					currentTraverseInOrdinal=.data$segmentEndInternalOrdinal,
+					currentTraverseOutOrdinal=.data$segmentEndExternalOrdinal,
+					distance=.data$distance + .data$segmentLength + .data$segmentEndAdditionalLength,
+					traversedBreakpoints=.data$traversedBreakpoints + 1,
+					traversedDistances=paste0(.data$traversedDistances, .data$distance, "	"),
+					breakpointsTraversed=paste0(.data$breakpointsTraversed, names(subjectGr)[.data$segmentEndInternalOrdinal], "	"))
+			# How can drop columns without a "findTransitiveCalls: no visible binding for global variable 'segmentStartAdditionalLength'" NOTE in R check?
+			#	dplyr::select(
+			#		-segmentStartInternalOrdinal,
+			#		-segmentLength,
+			#		-segmentEndInternalOrdinal,
+			#		-segmentEndExternalOrdinal,
+			#		-segmentStartAdditionalLength,
+			#		-segmentEndAdditionalLength)
+			current_traversals$segmentStartInternalOrdinal = NULL
+			current_traversals$segmentLength = NULL
+			current_traversals$segmentEndInternalOrdinal = NULL
+			current_traversals$segmentEndExternalOrdinal = NULL
+			current_traversals$segmentStartAdditionalLength = NULL
+			current_traversals$segmentEndAdditionalLength = NULL
 		}
 	}
 	# transform results into long form
 	resultdf = resultdf %>%
 		dplyr::mutate(
-			transitive_breakpoint_name=names(transitiveGr)[terminalStartOrdinal],
-			total_distance=as.integer(distance),
+			transitive_breakpoint_name=names(transitiveGr)[.data$terminalStartOrdinal],
+			total_distance=as.integer(.data$distance),
 			# trim trailing tab
-			traversed_breakpoint_names=stringr::str_sub(breakpointsTraversed, end=stringr::str_length(breakpointsTraversed) - 1),
-			distance_to_traversed_breakpoint=stringr::str_sub(traversedDistances, end=stringr::str_length(traversedDistances) - 1)) %>%
+			traversed_breakpoint_names=stringr::str_sub(.data$breakpointsTraversed, end=stringr::str_length(.data$breakpointsTraversed) - 1),
+			distance_to_traversed_breakpoint=stringr::str_sub(.data$traversedDistances, end=stringr::str_length(.data$traversedDistances) - 1)) %>%
 		dplyr::select(
-			transitive_breakpoint_name,
-			total_distance,
-			traversed_breakpoint_names,
-			distance_to_traversed_breakpoint) %>%
+			transitive_breakpoint_name=.data$transitive_breakpoint_name,
+			total_distance=.data$total_distance,
+			traversed_breakpoint_names=.data$traversed_breakpoint_names,
+			distance_to_traversed_breakpoint=.data$distance_to_traversed_breakpoint) %>%
 		as.data.frame() %>%
-		DataFrame()
-	resultdf$traversed_breakpoint_names = CharacterList(stringr::str_split(resultdf$traversed_breakpoint_names, stringr::fixed("	")))
-	resultdf$distance_to_traversed_breakpoint = IntegerList(stringr::str_split(resultdf$distance_to_traversed_breakpoint, stringr::fixed("	")))
+		S4Vectors::DataFrame()
+	resultdf$traversed_breakpoint_names = IRanges::CharacterList(stringr::str_split(resultdf$traversed_breakpoint_names, stringr::fixed("	")))
+	resultdf$distance_to_traversed_breakpoint = IRanges::IntegerList(stringr::str_split(resultdf$distance_to_traversed_breakpoint, stringr::fixed("	")))
 	return(resultdf)
 }
+#' @noRd
 .traversable_segments = function(gr, maxgap) {
 	as.data.frame(GenomicRanges::findOverlaps(gr, gr, maxgap=maxgap, ignore.strand=TRUE)) %>%
 		dplyr::filter(
-			(as.logical(strand(gr)[queryHits] == "-") & as.logical(strand(gr)[subjectHits] == "+") & start(gr)[queryHits] <= start(gr)[subjectHits]) |
-				(as.logical(strand(gr)[queryHits] == "+") & as.logical(strand(gr)[subjectHits] == "-") & start(gr)[queryHits] >= start(gr)[subjectHits])) %>%
+			(as.logical(strand(gr)[.data$queryHits] == "-") & as.logical(strand(gr)[.data$subjectHits] == "+") & start(gr)[.data$queryHits] <= start(gr)[.data$subjectHits]) |
+				(as.logical(strand(gr)[.data$queryHits] == "+") & as.logical(strand(gr)[.data$subjectHits] == "-") & start(gr)[.data$queryHits] >= start(gr)[.data$subjectHits])) %>%
 		dplyr::select(
-			segmentStartInternalOrdinal=queryHits,
-			segmentEndInternalOrdinal=subjectHits) %>%
+			segmentStartInternalOrdinal=.data$queryHits,
+			segmentEndInternalOrdinal=.data$subjectHits) %>%
 		dplyr::mutate(
-			segmentStartExternalOrdinal=gr$partnerOrdinal[segmentStartInternalOrdinal],
-			segmentEndExternalOrdinal=gr$partnerOrdinal[segmentEndInternalOrdinal],
-			segmentLength=1 + abs(start(gr)[segmentStartInternalOrdinal] - start(gr)[segmentEndInternalOrdinal]),
-			segmentStartAdditionalLength=gr$insLen[segmentStartInternalOrdinal],
-			segmentEndAdditionalLength=gr$insLen[segmentEndInternalOrdinal]) %>%
+			segmentStartExternalOrdinal=gr$partnerOrdinal[.data$segmentStartInternalOrdinal],
+			segmentEndExternalOrdinal=gr$partnerOrdinal[.data$segmentEndInternalOrdinal],
+			segmentLength=1 + abs(start(gr)[.data$segmentStartInternalOrdinal] - start(gr)[.data$segmentEndInternalOrdinal]),
+			segmentStartAdditionalLength=gr$insLen[.data$segmentStartInternalOrdinal],
+			segmentEndAdditionalLength=gr$insLen[.data$segmentEndInternalOrdinal]) %>%
 		dplyr::select(
-			segmentStartExternalOrdinal,
-			segmentStartInternalOrdinal,
-			segmentStartAdditionalLength,
-			segmentLength,
-			segmentEndAdditionalLength,
-			segmentEndInternalOrdinal,
-			segmentEndExternalOrdinal)
+			segmentStartExternalOrdinal=.data$segmentStartExternalOrdinal,
+			segmentStartInternalOrdinal=.data$segmentStartInternalOrdinal,
+			segmentStartAdditionalLength=.data$segmentStartAdditionalLength,
+			segmentLength=.data$segmentLength,
+			segmentEndAdditionalLength=.data$segmentEndAdditionalLength,
+			segmentEndInternalOrdinal=.data$segmentEndInternalOrdinal,
+			segmentEndExternalOrdinal=.data$segmentEndExternalOrdinal)
 }

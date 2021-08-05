@@ -1,3 +1,4 @@
+#'@noRd
 .elementExtract.List <- function(x, offset=1) {
 	lengths <- S4Vectors::elementNROWS(x)
 	flat <- BiocGenerics::unlist(x)
@@ -8,6 +9,7 @@
 	# on out of bounds instead of returning a correctly typed NA
 	return(.unXStringSet(flat)[flatOffset])
 }
+#' @noRd
 .elementExtract.ANY <- function(x, offset=1) {
 	if (is.null(x)) return(x)
 	if (is.vector(x)) {
@@ -17,6 +19,7 @@
 	result <- sapply(x, function(r) r[offset], USE.NAMES=FALSE)
 	return(result)
 }
+#' @noRd
 .elementExtract.XStringSet <- function(x, offset=1) {
 	return(.elementExtract.ANY(as.character(x), offset))
 }
@@ -25,6 +28,7 @@
 #' @param x list-like object
 #' @param offset offset of list
 #' @return The element of each element at given positions.
+#' @keywords internal
 setGeneric("elementExtract", function(x, offset=1) standardGeneric("elementExtract"))
 setMethod("elementExtract", "XStringSet", .elementExtract.XStringSet)
 setMethod("elementExtract", "List", .elementExtract.List)
@@ -33,6 +37,7 @@ setMethod("elementExtract", "ANY", .elementExtract.ANY)
 #' converts an XStringSet to a character
 #' @param x An XStringSet.
 #' @return A character.
+#' @noRd
 setGeneric(".unXStringSet", function(x) x)
 setMethod(".unXStringSet", "XStringSet", function(x) as.character(x))
 
@@ -40,6 +45,7 @@ setMethod(".unXStringSet", "XStringSet", function(x) as.character(x))
 #' Replaces the NA values in a with corresponding values in b
 #' @param a,b objects to be tested or coerced.
 #' @return The altered object.
+#' @noRd
 .replaceNa <- function(a, b) {
 	if (is.null(a) || length(a) == 0) return(b)
 	if (is.null(b) || length(b) == 0) return(a)
@@ -49,6 +55,7 @@ setMethod(".unXStringSet", "XStringSet", function(x) as.character(x))
 #' Uses b if a is NULL
 #' @param a,b objects to be tested or coerced.
 #' @return An un-null object.
+#' @noRd
 .replaceNull <- function(a, b) {
 	if (is.null(a)) return(b)
 	return (a)
@@ -60,6 +67,7 @@ setMethod(".unXStringSet", "XStringSet", function(x) as.character(x))
 #' @param s1,s2 A pair of strings.
 #' @param ignore.case Whether cases in the strings should be ignored.
 #' @return The length of the longest common prefix for each string pair.
+#' @noRd
 .pairwiseLCPrefix <- function(s1, s2, ignore.case=FALSE) {
 	s1 <- as.character(s1)
 	s2 <- as.character(s2)

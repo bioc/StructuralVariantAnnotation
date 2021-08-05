@@ -18,8 +18,7 @@ findTransitiveCalls(
     & start(transitiveGr) != end(transitiveGr),
   impreciseSubjectCalls = (subjectGr$HOMLEN == 0 | is.null(subjectGr$HOMLEN)) &
     start(subjectGr) != end(subjectGr),
-  allowImprecise = FALSE,
-  filterSelf = TRUE
+  allowImprecise = FALSE
 )
 }
 \arguments{
@@ -36,8 +35,15 @@ findTransitiveCalls(
 \item{positionalMargin}{Allowable margin of error when matching call positional overlaps.
 A non-zero margin allows for matching of breakpoint with imperfect homology.}
 
+\item{insertionLengthMargin}{Allowable difference in length between the inserted sequence and the traversed
+path length.
+Defaults to 50bp to allow for long read indel errors.}
+
 \item{insLen}{Integer vector of same length as `transitiveGr` indicating the number
-of bases inserted at the breakpoint.}
+of bases inserted at the breakpoint.
+
+Defaults to transitiveGr$insLen which will be present if the GRanges
+was loaded from a VCF using breakpointRanges()}
 
 \item{impreciseTransitiveCalls}{Boolean vector of same length as `transitiveGr` indicating which calls
 are imprecise calls. Defaults to calls with a non-zero interval size
@@ -52,10 +58,6 @@ Defaults to FALSE as to prevent spurious results which skip
 some breakpoints when traversing multiple breakpoints
 E.g. An A-D transitive from an underlying A-B-C-D rearrangement
 will include A-B-D and A-C-D results if allowImprecise=TRUE.}
-
-\item{lengthMargin}{Allowable difference in length between the inserted sequence and the traversed
-path length.
-Defaults to 50bp to allow for long read indel errors.}
 }
 \value{
 `DataFrame` containing the transitive calls traversed with the following columns:

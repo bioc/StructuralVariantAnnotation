@@ -21,7 +21,8 @@ GRanges
 }
 \examples{
 #Subset to chromosome 6 intra-chromosomal events \code{vcf}
-vcf.file <- system.file("extdata", "COLO829T.purple.sv.ann.vcf.gz", package = "StructuralVariantAnnotation")
+vcf.file <- system.file("extdata", "COLO829T.purple.sv.ann.vcf.gz",
+  package = "StructuralVariantAnnotation")
 vcf <- VariantAnnotation::readVcf(vcf.file)
 gr <- breakpointRanges(vcf)
 gr <- gr[seqnames(gr) == "6"]
