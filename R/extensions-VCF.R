@@ -278,7 +278,7 @@ setMethod("breakpointRanges", "VCF",
 		cgr <- NULL
 		mategr <- NULL
 	}
-	rows <- !gr$processed & !is.na(gr$svtype) & gr$svtype %in% c("DEL", "INS", "DUP", "RPL")
+	rows <- !gr$processed & !is.na(gr$svtype) & gr$svtype %in% c("DEL", "INS", "DUP", "RPL", "UNK")
 	if (any(rows)) {
 		cgr <- gr[rows,]
 		gr$processed[rows] <- TRUE
@@ -289,7 +289,8 @@ setMethod("breakpointRanges", "VCF",
 			dup <- cgr$svtype == "DUP"
 			del <- cgr$svtype == "DEL"
 			ins <- cgr$svtype == "INS"
-
+			ukn <- cgr$svtype == "UNK"
+			
 			strand(cgr) <- "+"
 			width(cgr) <- 1
 			cgr$insLen <- ifelse(ins, abs(cgr$svLen), 0)
@@ -314,6 +315,9 @@ setMethod("breakpointRanges", "VCF",
 
 			strand(cgr)[dup] <- "-"
 			strand(mategr)[dup] <- "+"
+			
+			strand(cgr)[ukn] <- "*"
+			strand(mategr)[ukn] <- "*"
 
 			names(mategr) <- paste0(names(cgr), suffix, 2)
 			names(cgr) <- paste0(names(cgr), suffix, 1)
@@ -389,7 +393,11 @@ setMethod("breakpointRanges", "VCF",
 			remoteLocation <- bndMatches[,4]
 			postBases <- bndMatches[,6]
 			strand(cgr) <- ifelse(preBases == "", "-", "+")
-
+			if (!is.null(info(cvcf)$IMPRECISE_DIR)) {
+				# LongRanger
+				strand(cgr) <- ifelse(info(cvcf)$IMPRECISE_DIR, "*", as.character(strand(cgr)))
+			}
+			
 			cgr$partner <- NA_character_
 			if (!is.null(info(cvcf)$PARID)) {
 				cgr$partner <- elementExtract(info(cvcf)$PARID, 1)

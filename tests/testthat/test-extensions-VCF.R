@@ -19,6 +19,7 @@ pindel <- readVcf(.testfile("pindel-0.2.5b6.vcf"), "")
 tigra <- readVcf(.testfile("tigra-0.3.7.vcf"), "")
 manta <- readVcf(.testfile("manta-0.29.6.vcf"), "")
 manta111 <- readVcf(.testfile("manta-1.1.1.vcf"), "")
+longranger <- readVcf(.testfile("COLO829.10X.longranger.largeSVs.vcf"), "")
 
 test_that("INFO column import", {
 	gr <- breakpointRanges(simple, info_columns=c("SVTYPE", "MATEID"))
@@ -26,6 +27,17 @@ test_that("INFO column import", {
 
 	gr <- breakpointRanges(.testrecord(c("chr10	2991435	INV	N	<INV>	.	LowQual	SVTYPE=INV;CHR2=chr1;END=19357517;CT=3to5")))
 })
+
+test_that("longranger UNK", {
+	gr <- breakpointRanges(longranger)[c("call_2416_1", "call_2416_2")]
+	expect_equal(as.character(strand(gr)), c("*", "*"))
+})
+test_that("longranger IMPRECISE_DIR", {
+	gr <- breakpointRanges(longranger)[c("call_534_bp1", "call_534_bp2")]
+	expect_equal(c(2632545-10, 2689665-10+1), start(gr))
+	expect_equal(as.character(strand(gr)), c("*", "*"))
+})
+
 
 test_that("Delly TRA", {
 	# https://groups.google.com/forum/#!msg/delly-users/6Mq2juBraRY/BjmMrBh3GAAJ
@@ -386,6 +398,43 @@ test_that("representations are equivalent", {
     expect_equal(rep(c(5, 13), 3), start(bpgr))
     expect_equal(rep(c(5, 13), 3), end(bpgr))
 })
+
+# TODO: VCFv4.4 support
+# - filter DEL/DUP on SVCLAIM
+# - Basic support for CNV?
+# - Deprecate SVTYPE
+
+# VCFv4.4 PR: CIEND deprecate - use CILEN
+    # need to define how CILEN interacts with CIPOS - there are multiple possible interpretation
+    # [CIPOS_start, CIPOS_end], [CIEND_start, CIEND_end] implies CILEN=[CIPOS_end-CIEND_start, CIEND_end, CIPOS_start]
+    # but the actual CILEN could be less. Homology
+    # bonus: usually doesn't need to be written!
+# VCFv4.4 PR: HOMLEN deprecate and replace with HOMPOS
+    # Exact calls shouldn't have a CIPOS - they should use HOMPOS instead.
+# VCFv4.4 PR: Event/Type should be type=A, not type=1
+
+# VCFv4.4 PR: line 196: ALT=<BND> is not valid
+
+# VCFv4.4 PR: update the \subsection{Encoding Structural Variants} example
+	# The SV example should not include non-reserved subtypes
+
+# VCFv4.4 PR: line 208: reserve all IUPAC ambiguity codes
+
+# VCFv4.4 TODO: why is the FORMAT CN field TYPE=1 ? Is it just the CN? Why Integer, not Float?
+
+test_that("VCFv4.4 use CILEN over CIEND", {
+})
+test_that("VCFv4.4 use CIEND is CIEND not present", {
+})
+test_that("VCFv4.4 use ALT instead of SVTYPE", {
+})
+test_that("VCFv4.4 support arbitrary ALT symbolic subtypes", {
+})
+test_that("VCFv4.4 TODO: support multiple SV ALT alleles", {
+})
+
+
+
 
 
 
