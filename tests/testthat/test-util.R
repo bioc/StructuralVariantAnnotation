@@ -23,6 +23,7 @@ expect_equal(.replaceNa(c(1,NA), integer(0)), c(1,NA))
 # want to be able to perform operations on VCF columns that may not exist
 expect_equal(.replaceNa(numeric(0), c(1,2)), c(1,2))
 expect_equal(.replaceNa((NULL - c(2, NA)), c(1,2)), c(1,2))
+expect_equal(c(1,2,7,3), c(1,2,NA,3) |> .replaceNa(c()) |> .replaceNa(c(5,6,7,8)))
 
 expect_equal(.pairwiseLCPrefix(DNAStringSet(c("Aa", "CCCt", "N")), c("aA", "ccct", ""), ignore.case=TRUE), c(2, 4, 0))
 expect_equal(.pairwiseLCPrefix(DNAStringSet(c("ACGT")), c("CGT"), ignore.case=TRUE), c(0))

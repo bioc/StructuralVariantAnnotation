@@ -27,18 +27,15 @@ test_that("INFO column import", {
 
 	gr <- breakpointRanges(.testrecord(c("chr10	2991435	INV	N	<INV>	.	LowQual	SVTYPE=INV;CHR2=chr1;END=19357517;CT=3to5")))
 })
-
 test_that("longranger UNK", {
 	gr <- breakpointRanges(longranger)[c("call_2416_1", "call_2416_2")]
 	expect_equal(as.character(strand(gr)), c("*", "*"))
 })
 test_that("longranger IMPRECISE_DIR", {
 	gr <- breakpointRanges(longranger)[c("call_534_bp1", "call_534_bp2")]
-	expect_equal(c(2632545-10, 2689665-10+1), start(gr))
+	expect_equal(c(2632546-10, 2632545-10+57120), start(gr))
 	expect_equal(as.character(strand(gr)), c("*", "*"))
 })
-
-
 test_that("Delly TRA", {
 	# https://groups.google.com/forum/#!msg/delly-users/6Mq2juBraRY/BjmMrBh3GAAJ
 	# Sorry, I forgot to post this to the delly-users list:
@@ -73,10 +70,10 @@ test_that("pindel RPL", {
 test_that("empty VCF", {
 	expect_equal(0, length(breakpointRanges(.testrecord(c()))))
 })
-
-expect_false(.hasSingleAllelePerRecord(multipleAlleles))
-expect_true(.hasSingleAllelePerRecord(expand(multipleAlleles)))
-
+test_that(".hasSingleAllelePerRecord", {
+	expect_false(.hasSingleAllelePerRecord(multipleAlleles))
+	expect_true(.hasSingleAllelePerRecord(expand(multipleAlleles)))
+})
 test_that("isSymbolic", {
 	expect_equal(
 	    c(FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE),
@@ -94,14 +91,10 @@ test_that(".svLen", {
 	expect_equal(.svLen(.testrecord("chr1	100	.	A	<DEL>	.	.	SVLEN=-1")), c(-1))
 	expect_equal(.svLen(.testrecord("chr1	100	.	A	<DUP>	.	.	END=101")), c(1))
 })
-
-
-
 # unpaired breakend
 test_that("partner fails if missing mate", {
-	expect_error(partner(breakpointRanges(breakend)[1,]))
+	expect_error(partner(breakpointRanges(simple)[1,]))
 })
-
 test_that("breakpointRanges convert to breakend pairs", {
 	gr <- breakpointRanges(simple)
 	pairId <- c("INS", "DEL", "SYMINS", "SYMDEL")
@@ -110,13 +103,12 @@ test_that("breakpointRanges convert to breakend pairs", {
 	expect_equal(names(partner(gr))[names(gr) %in% paste0(pairId, "_bp1")], paste0(pairId, "_bp2"))
 	expect_equal(names(partner(gr))[names(gr) %in% c("BNDFB", "BNDBF")], c("BNDBF", "BNDFB"))
 })
-
 test_that("breakpointRanges creates placeholder names", {
-	expect_named(breakpointRanges(.testrecord(c(
+	expect_warning(expect_named(breakpointRanges(.testrecord(c(
 		"chr1	100	.	A	<DEL>	.	.	SVLEN=-1",
-		"chr1	100	.	A	<DEL>	.	.	SVLEN=-1"))))
+		"chr1	100	.	A	<DEL>	.	.	SVLEN=-1")))),
+		regex="Found 1 duplicate row names")
 })
-
 test_that("breakpointRanges non-symbolic alleles", {
 	gr <- breakpointRanges(simple[c("INS", "DEL"),])
 	expect_equal(4, length(gr))
@@ -143,7 +135,6 @@ test_that("breakpointRanges non-symbolic alleles", {
 	expect_equal(gr$insLen, c(0, 0))
 	expect_equal(gr$svLen, c(-2, -2))
 })
-
 test_that("breakpointRanges intervals", {
 	# Position assumed to the left aligned
 	gr <- breakpointRanges(.testrecord("chr1	100	.	A	AT	.	.	HOMLEN=0"))
@@ -176,7 +167,6 @@ test_that("breakpointRanges intervals", {
 	expect_equal(start(gr), c(100, 101))
 	expect_equal(end(gr), c(150, 151))
 })
-
 test_that("breakpointRanges DEL", {
 	gr <- breakpointRanges(.testrecord("chr1	100	.	A	<DEL>	.	.	SVLEN=-1"))
 	expect_equal(start(gr), c(100, 102))
@@ -191,15 +181,13 @@ test_that("breakpointRanges DEL", {
 	# warning about incompatable SVLEN and END fields
 	#expect_warning(breakpointRanges(.testrecord("chr1	100	.	A	<DEL>	.	.	END=101;SVLEN=-10")), "SVLEN")
 })
-
 test_that("breakpointRanges should fix positive DEL event size", {
 	gr <- breakpointRanges(.testrecord("chr1	100	.	A	<DEL>	.	.	SVLEN=10"))
 	expect_equal(start(gr), c(100, 111))
 	expect_equal(gr$insLen, c(0, 0))
 })
-
 test_that("breakpointRanges breakend", {
-	gr <- breakpointRanges(breakend)
+	expect_warning(gr <- breakpointRanges(breakend))
 	expect_equal("parid_b", gr["parid_a",]$partner)
 	expect_equal("mateid_b", gr["mateid_a",]$partner)
 	expect_equal(partner(gr[c("parid_a", "parid_b"),]), gr[c("parid_b", "parid_a"),])
@@ -214,44 +202,42 @@ test_that("breakpointRanges breakend", {
 		"chr1	101	b	N	]chr1:100]TTTTN	.	.	SVTYPE=BND;CIPOS=0,1;PARID=a"
 	)))$svLen, c(4, 4))
 })
-
 test_that("breakpointRanges INV", {
 	# VCF example
 	gr <- breakpointRanges(.testrecord("chr1	321682	INV0	T	<INV>	6	PASS	SVTYPE=INV;END=421681"))
 	expect_equal(4, length(gr))
-	expect_equal(start(gr), c(321682, 421682, 321681, 421681))
+	expect_equal(start(gr), c(321682+1, 421681+1, 321682, 421681))
 	expect_equal(as.character(strand(gr)), c("-", "-", "+", "+"))
 	expect_equal(names(gr), c("INV0_bp1", "INV0_bp2", "INV0_bp3", "INV0_bp4"))
 
 	gr <- breakpointRanges(.testrecord("chr1	321682	INV0	T	<INV>	6	PASS	SVTYPE=INV;END=421681;CIPOS=-2,1;CIEND=-3,4"))
 	expect_equal(4, length(gr))
-	expect_equal(start(gr), c(321680, 421679, 321679, 421678))
-	expect_equal(end(gr), c(321683, 421686, 321682, 421685))
+	expect_equal(start(gr), c(321682+1, 421681+1, 321682, 421681) + c(-2, -3, -2 ,-3))
+	expect_equal(  end(gr), c(321682+1, 421681+1, 321682, 421681) + c( 1,  4,  1,  4))
 
 	expect_error(breakpointRanges(.testrecord("chr1	321682	INV0	T	<INV>	6	PASS	SVTYPE=INV")))
 })
-
 test_that("breakpointRanges DUP", {
 	# VCF example
 	gr <- breakpointRanges(.testrecord(c(
 		"chr1	12665100	.	A	<DUP>	14	PASS	SVTYPE=DUP;END=12686200;SVLEN=21100",
 		"chr1	18665128	.	T	<DUP:TANDEM>	11	PASS	SVTYPE=DUP;END=18665204;SVLEN=76")))
 	expect_equal(4, length(gr))
-	expect_equal(start(gr), c(12665100, 18665128,
+	expect_equal(start(gr), c(12665100+1, 18665128+1,
 							  12686200, 18665204))
 	expect_equal(as.character(strand(gr)), c("-", "-", "+", "+"))
 	expect_equal(c(0,0,0,0), gr$insLen)
 
 	gr <- breakpointRanges(.testrecord("chr1	12665100	.	A	<DUP>	14	PASS	SVTYPE=DUP;END=12686200;SVLEN=21100;CIPOS=-2,1;CIEND=-3,4"))
 	expect_equal(2, length(gr))
-	expect_equal(start(gr), c(12665098, 12686197))
-	expect_equal(end(gr), c(12665101, 12686204))
+	expect_equal(start(gr), c(12665100+1, 12686200) + c(-2,-3))
+	expect_equal(  end(gr), c(12665100+1, 12686200) + c( 1, 4))
 
 	expect_error(breakpointRanges(.testrecord("chr1	321682	.	T	<DUP>	.	.	SVTYPE=DUP")))
 
 	gr <- breakpointRanges(.testrecord("chr12	5616362	chr12.5616362.DUP65536	A	<DUP>	.	.	SVLEN=65536;SVTYPE=DUP"))
 	expect_equal(2, length(gr))
-	expect_equal(start(gr), c(5616362, 5616362+65536))
+	expect_equal(start(gr), c(5616362+1, 5616362+65536))
 	expect_equal(c("-", "+"), as.character(strand(gr)))
 })
 
@@ -285,7 +271,7 @@ test_that("nominalPosition should ignore micro-homology", {
 test_that("breakpointRanges should not include breakends", {
 	expect_true(isSymbolic(.testrecord(c("chr1	100	.	A	AAA.	14	PASS	SVTYPE=BND"))))
 	expect_equal(0, length(breakpointRanges(.testrecord(c("chr1	100	.	A	AAA.	14	PASS	SVTYPE=BND")))))
-	expect_equal(0, length(breakpointRanges(.testrecord(c("1	1541062	gridss0_2065b	G	.GGTGGGGGGGGCTGGTCAGGTGTGGTGTGGGGTGGTCGGGGGTGGGGGGGGTTGGGAAGGGGGGGGGGGGGCTGGGCAGGTGTGGGG	262.69	LOW_QUAL;NO_ASSEMBLY	AS=0;ASQ=0.00;ASRP=0;ASSR=0;BA=0;BAQ=0.00;BASRP=0;BASSR=0;BQ=262.69;BSC=13;BSCQ=212.37;BUM=2;BUMQ=50.32;CAS=0;CASQ=0.00;CQ=509.25;EVENT=gridss0_2065;IC=0;IQ=0.00;RAS=0;RASQ=0.00;REF=159;REFPAIR=32;RP=0;RPQ=0.00;SC=1X;SR=0;SRQ=0.00;SVTYPE=BND")))))
+	expect_equal(0, length(breakpointRanges(.testrecord(c("chr1	1541062	gridss0_2065b	G	.GGTGGG	262.69	.	SVTYPE=BND")))))
 })
 test_that("breakendRanges should include breakends", {
 	gr <- breakendRanges(.testrecord(c("chr1	100	.	A	TGC.	14	PASS	SVTYPE=BND")))
@@ -373,7 +359,7 @@ test_that("align_breakpoint should not touch other variants", {
 	expect_equal(c("AGT.", ".AGT", "<DEL>"), unlist(rowRanges(vcf)$ALT))
 })
 test_that("breakpointRanges() should default to drop unpaired records.", {
-	gr = breakpointRanges(gridss_missing_partner)
+	gr = expect_warning(breakpointRanges(gridss_missing_partner))
 	expect_equal(2, length(gr))
 })
 test_that("breakpointRanges(inferMissingBreakends=TRUE) should add missing breakends.", {
@@ -419,24 +405,150 @@ test_that("representations are equivalent", {
 	# The SV example should not include non-reserved subtypes
 
 # VCFv4.4 PR: line 208: reserve all IUPAC ambiguity codes
-
+# VCFv4.4 PR: line 208: can symoblic alleles be mixed with non-symbolic ones?
 # VCFv4.4 TODO: why is the FORMAT CN field TYPE=1 ? Is it just the CN? Why Integer, not Float?
 
-test_that("VCFv4.4 use CILEN over CIEND", {
-})
-test_that("VCFv4.4 use CIEND is CIEND not present", {
-})
 test_that("VCFv4.4 use ALT instead of SVTYPE", {
+	vcf44 = .testrecordv44(c(
+		# we'll ignore that the mate orientations are actually incorrect for now - we're just testing missing SVTYPE
+		"chrA	1000	bp1	N	A]chrA:2000]	.	.	PARID=bp2",
+		"chrA	2000	bp2	N	]chrA:1000]G	.	.	PARID=bp1",
+		"chrA	1000	bp4	N	[chrA:2000[A	.	.	PARID=bp4",
+		"chrA	2000	bp3	N	G[chrA:1000[	.	.	PARID=bp3",
+		"chrA	2000	be1	N	.G	.	.	",
+		"chrA	2000	be2	N	.G	.	.	",
+		"chrA	1	del	A	<DEL>	0	.	SVLEN=10;SVCLAIM=J",
+		"chrA	1	dup	A	<DUP>	0	.	SVLEN=10;SVCLAIM=J",
+		"chrA	1	ins	A	<INS>	0	.	SVLEN=10",
+		"chrA	1	inv	A	<INV>	0	.	SVLEN=10"))
+	bpgr = breakpointRanges(vcf44)
+	begr = breakendRanges(vcf44)
+	expect_equal(sort(c(
+		"bp1", "bp2", "bp3", "bp4",
+		"del_bp1", "dup_bp1", "ins_bp1", "inv_bp1",
+		"del_bp2", "dup_bp2", "ins_bp2", "inv_bp2",
+		"inv_bp3", "inv_bp4")), sort(names(bpgr)))
+	expect_equal(sort(c("be1", "be2")), sort(names(begr)))
 })
-test_that("VCFv4.4 support arbitrary ALT symbolic subtypes", {
+test_that("VCFv4.4 CNV & SVCLAIM", {
+	bpgr = breakpointRanges(.testrecordv44(c(
+		"chrA	1	cnv_del	A	<DEL>	0	.	SVLEN=10;SVCLAIM=D",
+		"chrA	1	cnv_dup	A	<DUP>	0	.	SVLEN=10;SVCLAIM=D",
+		"chrA	1	cnv	A	<CNV>	0	.	SVLEN=10",
+		"chrA	1	del_actual	A	<DEL>	0	.	SVLEN=10;SVCLAIM=DJ",
+		"chrA	1	dup_actual	A	<DUP>	0	.	SVLEN=10;SVCLAIM=DJ",
+		"chrA	1	del	A	<DEL>	0	.	SVLEN=10;SVCLAIM=J",
+		"chrA	1	dup	A	<DUP>	0	.	SVLEN=10;SVCLAIM=J",
+		"chrA	1	ins	A	<INS>	0	.	SVLEN=10")))
+	expected_names = c("del_actual", "dup_actual", "del", "dup", "ins")
+	expect_equal(c(paste0(expected_names, "_bp1"), paste0(expected_names, "_bp2")), names(bpgr))
 })
-test_that("VCFv4.4 TODO: support multiple SV ALT alleles", {
+test_that("VCFv4.4 SVLEN>END", {
+	bpgr = breakpointRanges(.testrecordv44(c(
+		"chrA	1	end	A	<DEL>	0	.	SVCLAIM=J;END=3",
+		"chrA	1	svlen	A	<DEL>	0	.	SVCLAIM=J;SVLEN=5",
+		"chrA	1	both	A	<DEL>	0	.	SVCLAIM=J;END=10;SVLEN=5")))
+	expect_equal(4, start(bpgr["end_bp2"]))
+	expect_equal(7, start(bpgr["svlen_bp2"]))
+	expect_equal(7, start(bpgr["both_bp2"]))
 })
-
-
-
-
-
+test_that("VCFv4.4 CIEND>CILEN DEL", {
+	bpgr = breakpointRanges(.testrecordv44(c(
+		"chrA	10	both1	A	<DEL>	0	.	SVLEN=5;END=15;CIPOS=-2,2;CILEN=-2,2;CIEND=0,0",
+		"chrA	10	both2	A	<DEL>	0	.	SVLEN=5;END=15;CIPOS=-2,2;CILEN=0,0;CIEND=-2,2",
+		"chrA	10	cilen	A	<DEL>	0	.	SVLEN=7;CIPOS=-2,2;CILEN=-3,3", #END=17
+		"chrA	10	ciend	A	<DEL>	0	.	END=14;CIPOS=-2,2;CIEND=-1,3",
+		"chrA	10	inferred_end_bounds	A	<DEL>	0	.	SVLEN=7;CIPOS=-2,2")))
+	expect_equal(c(10,16) + c(-2,  0), start(bpgr[c("both1_bp1", "both1_bp2")]))
+	expect_equal(c(10,16) + c( 2,  0),   end(bpgr[c("both1_bp1", "both1_bp2")]))
+	
+	expect_equal(c(10,16) + c(-2, -2), start(bpgr[c("both2_bp1", "both2_bp2")]))
+	expect_equal(c(10,16) + c( 2,  2),   end(bpgr[c("both2_bp1", "both2_bp2")]))
+	
+	# widest end bounds is [leftmost start & shortest, rightmost start + longest]
+	expect_equal(c(10,18) + c(-2, -2-3), start(bpgr[c("cilen_bp1", "cilen_bp2")]))
+	expect_equal(c(10,18) + c( 2, +2+3),   end(bpgr[c("cilen_bp1", "cilen_bp2")]))
+	
+	expect_equal(c(10,15) + c(-2, -1), start(bpgr[c("ciend_bp1", "ciend_bp2")]))
+	expect_equal(c(10,15) + c( 2,  3),   end(bpgr[c("ciend_bp1", "ciend_bp2")]))
+		
+	# inferred end bounds should match start since SVLEN is known and fixed
+	expect_equal(c(10,18) + c(-2, -2), start(bpgr[c("inferred_end_bounds_bp1", "inferred_end_bounds_bp2")]))
+	expect_equal(c(10,18) + c( 2,  2),   end(bpgr[c("inferred_end_bounds_bp1", "inferred_end_bounds_bp2")]))
+})
+test_that("VCFv4.4 CIEND CILEN INV", {
+	# inversion has a different codepath
+	bpgr = breakpointRanges(.testrecordv44(c(
+		"chrA	10	inv1	A	<INV>	0	.	SVLEN=5;CIPOS=-1,1;CILEN=-2,2;CIEND=0,0",
+		"chrA	10	inv2	A	<INV>	0	.	SVLEN=5;CIPOS=-1,1;CILEN=-2,2")))
+	expect_equal(c(16, 15) + 0,   start(bpgr[c("inv1_bp2", "inv1_bp4")]))
+	expect_equal(c(16, 15) + 0,     end(bpgr[c("inv1_bp2", "inv1_bp4")]))
+	expect_equal(c(16, 15) + -1-2,start(bpgr[c("inv2_bp2", "inv2_bp4")]))
+	expect_equal(c(16, 15) + 1+2,   end(bpgr[c("inv2_bp2", "inv2_bp4")]))
+})
+test_that("VCFv4.4 CIEND CILEN INS", {
+	bpgr = breakpointRanges(.testrecordv44(c(
+		"chrA	10	inv1	A	<INS>	0	.	SVLEN=5;CIPOS=-1,1;CILEN=-2,2;CIEND=0,0",
+		"chrA	10	inv2	A	<INS>	0	.	SVLEN=5;CIPOS=-1,1;CILEN=-2,2")))
+	# CILEN doesn't impact INS bounds
+	expect_equal(11 + c(0,-1),start(bpgr[c("inv1_bp2", "inv2_bp2")]))
+	expect_equal(11 + c(0, 1),  end(bpgr[c("inv1_bp2", "inv2_bp2")]))
+})
+test_that("VCFv4.4 ALT symbolic subtypes", {
+	bpgr = breakpointRanges(.testrecordv44(c(
+		"chrA	1	ins	A	<INS:ME:ALU>	0	.	SVLEN=5",
+		"chrA	1	dup	A	<DUP:TANDEM>	0	.	SVLEN=3"
+	)))
+	expect_equal(1, start(bpgr["ins_bp1"]))
+	expect_equal(1,   end(bpgr["ins_bp1"]))
+	expect_equal(2, start(bpgr["ins_bp2"]))
+	expect_equal(2,   end(bpgr["ins_bp2"]))
+	expect_equal(2, start(bpgr["dup_bp1"]))
+	expect_equal(4, start(bpgr["dup_bp2"]))
+	expect_equal("-", as.character(strand(bpgr["dup_bp1"])))
+	expect_equal("+", as.character(strand(bpgr["dup_bp2"])))
+})
+test_that("VCFv4.4 EVENT", {
+	bpgr = breakpointRanges(.testrecordv44(c(
+		"chrA	1	e1	A	<DEL>	0	.	SVLEN=5;SVCLAIM=J;EVENT=complex;EVENTTYPE=chromothripsis",
+		"chrA	10	e2	A	<DEL>	0	.	SVLEN=5;SVCLAIM=J;EVENT=complex;EVENTTYPE=chromothripsis",
+		"chrA	20	untagged	A	<DEL>	0	.	SVLEN=5;SVCLAIM=J")))
+	expect_equal(c("complex", "complex", NA_character_), bpgr[c("e1_bp1", "e2_bp1", "untagged_bp1")]$event)
+})
+test_that("VCFv4.4 non-SV symbolic alleles", {
+	bpgr = breakpointRanges(.testrecordv44(c(
+		"chrA	1	sym1	A	<*>	0	.	END=10",
+		"chrA	10	sym2	A	<NON_REF>	0	.	")))
+	expect_equal(0, length(bpgr))
+})
+test_that("SVLEN", {
+	bpgr = breakpointRanges(.testrecordv44(c(
+		"chrA	2	ins	A	<INS>	0	.	SVLEN=3",
+		"chrA	2	dup	A	<DUP>	0	.	SVLEN=3",
+		"chrA	2	del	A	<DEL>	0	.	SVLEN=3",
+		"chrA	2	inv	A	<INV>	0	.	SVLEN=3",
+		"chrA	2	cnv	A	<CNV>	0	.	SVLEN=3")))
+	expect_equal(end(bpgr)-start(bpgr), rep(0, length(bpgr)))
+	expect_equal(c(2, 3), start(bpgr[c("ins_bp1", "ins_bp2")]))
+	expect_equal(c(3, 5), start(bpgr[c("dup_bp1", "dup_bp2")]))
+	expect_equal(c(2, 6), start(bpgr[c("del_bp1", "del_bp2")]))
+	expect_equal(c(3, 6, 2, 5), start(bpgr[c("inv_bp1", "inv_bp2", "inv_bp3", "inv_bp4")]))
+	
+	expect_equal(c("+", "-"), as.character(strand(bpgr[c("ins_bp1", "ins_bp2")])))
+	expect_equal(c("-", "+"), as.character(strand(bpgr[c("dup_bp1", "dup_bp2")])))
+	expect_equal(c("+", "-"), as.character(strand(bpgr[c("del_bp1", "del_bp2")])))
+	expect_equal(c("-", "-", "+", "+"), as.character(strand(bpgr[c("inv_bp1", "inv_bp2", "inv_bp3", "inv_bp4")])))
+})
+# test_that("VCFv4.4 support multiple SV ALT alleles", {
+# 	bpgr = breakpointRanges(.testrecordv44(c(
+# 		"chrA	10	multi	A	<DEL>,<DUP>	0	.	SVLEN=5,10;CIPOS=-1,1,-2,2;SVCLAIM=J")))
+# 	expect_equal(4, length(bpgr))
+# 	expect_equal(c("multi_bp1", "multi_bp2", "multi_alt2_bp1", "multi_alt2_bp2"), names(bpgr))
+# 	expect_equal(c(10-1, 10+5-1), start(bpgr[c("multi_bp1", "multi_bp2")]))
+# 	expect_equal(c(10+1, 10+5+1),   end(bpgr[c("multi_bp1", "multi_bp2")]))
+# 	expect_equal(c(10-2, 10+10-2), start(bpgr[c("multi_alt2_bp1", "multi_alt2_bp2")]))
+# 	expect_equal(c(10+2, 10+10+2),   end(bpgr[c("multi_alt2_bp1", "multi_alt2_bp2")]))
+# })
 
 
 

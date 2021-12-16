@@ -17,9 +17,9 @@
 ##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
 ##contig=<ID=chr1,length=249250621>
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-chr1	1	parid_a	A	A]chr1:1]	.	.	SVTYPE=BND;MATEID=parid_b
-chr1	1	parid_b	A	A]chr1:1]	.	.	SVTYPE=BND;MATEID=parid_a
-chr1	1	mateid_a	A	A]chr1:1]	.	.	SVTYPE=BND;MATEID=mateid_b
-chr1	1	mateid_b	A	A]chr1:1]	.	.	SVTYPE=BND;MATEID=mateid_a
-chr1	1	multi_mateid	A	A]chr1:1]	.	.	SVTYPE=BND;MATEID=mateid_a,mateid_b
-chr1	1	unpaired	A	A]chr1:1]	.	.	SVTYPE=BND
+chr1	2	parid_a	A	A]chr1:2]	.	.	SVTYPE=BND;MATEID=parid_b
+chr1	2	parid_b	A	A]chr1:2]	.	.	SVTYPE=BND;MATEID=parid_a
+chr1	2	mateid_a	A	A]chr1:2]	.	.	SVTYPE=BND;MATEID=mateid_b
+chr1	2	mateid_b	A	A]chr1:2]	.	.	SVTYPE=BND;MATEID=mateid_a
+chr1	2	multi_mateid	A	A]chr1:2]	.	.	SVTYPE=BND;MATEID=mateid_a,mateid_b
+chr1	2	unpaired	A	A]chr1:2]	.	.	SVTYPE=BND
