@@ -51,7 +51,7 @@
 		"##contig=<ID=chr11,length=1000000000>",
     	"##contig=<ID=chr12,length=1000000000>",
     	"##contig=<ID=chrM,length=16571>",
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT",
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample",
         record), collapse="\n"),
         file=filename)
     vcf <- readVcf(.testfile(filename), "")
@@ -114,7 +114,7 @@
 		"##ALT=<ID=CNV,Description=\"Copy number variable region\">",
 		"##contig=<ID=chrA,length=10000>",
 		"##contig=<ID=chrB,length=10000>",
-		"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT",
+		"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample",
 		record), collapse="\n"),
 		file=filename)
 	vcf <- readVcf(.testfile(filename), "")

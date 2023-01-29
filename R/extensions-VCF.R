@@ -661,11 +661,12 @@ align_breakpoints <- function(vcf, align=c("centre"), is_higher_breakend=names(v
 	if (!all(S4Vectors::elementNROWS(info(vcf)$CIPOS) == 2)) {
 		stop("CIPOS not specified for all variants.")
 	}
+	alt = as.character(SummarizedExperiment::rowRanges(vcf)$ALT)
 	is_higher_breakend[is.na(is_higher_breakend)] = FALSE
 	nominal_start = start(SummarizedExperiment::rowRanges(vcf))
 	cipos = t(matrix(unlist(info(vcf)$CIPOS), nrow=2))
 	ciwdith = cipos[,2] - cipos[,1]
-	orientations = .vcfAltToStrandPair(SummarizedExperiment::rowRanges(vcf)$ALT)
+	orientations = .vcfAltToStrandPair(alt)
 	if (align == "centre") {
 		citargetpos = nominal_start + cipos[,1] + ciwdith / 2.0
 		adjust_by = citargetpos - nominal_start
@@ -674,7 +675,7 @@ align_breakpoints <- function(vcf, align=c("centre"), is_higher_breakend=names(v
 	} else {
 		stop("Only centre alignment is currently implemented.")
 	}
-	isbp = stringr::str_detect(VariantAnnotation::fixed(vcf)$ALT, "[\\]\\[]")
+	isbp = stringr::str_detect(alt, "[\\]\\[]")
 	is_adjusted_bp =  isbp & !is.na(adjust_by) & adjust_by != 0
 	SummarizedExperiment::rowRanges(vcf) = shift(SummarizedExperiment::rowRanges(vcf), ifelse(!is_adjusted_bp, 0, adjust_by))
 	info(vcf)$CIPOS = info(vcf)$CIPOS - adjust_by
@@ -684,7 +685,6 @@ align_breakpoints <- function(vcf, align=c("centre"), is_higher_breakend=names(v
 	if (!is.null(info(vcf)$IHOMPOS)) {
 		info(vcf)$IHOMPOS = info(vcf)$IHOMPOS - adjust_by
 	}
-	alt = unlist(SummarizedExperiment::rowRanges(vcf)$ALT)
 	partner_alt = stringr::str_match(alt, "^([^\\]\\[]*)[\\]\\[]([^:]+):([0-9]+)([\\]\\[])([^\\]\\[]*)$")
 	# [,2] anchoring bases
 	# [,3] partner chr
