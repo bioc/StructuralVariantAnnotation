@@ -26,13 +26,13 @@ calculateReferenceHomology(
 \item{margin}{Number of additional reference bases include. This allows
 for inexact homology to be detected even in the presence of indels.}
 
-\item{match}{see Biostrings::pairwiseAlignment}
+\item{match}{see pwalign::pairwiseAlignment}
 
-\item{mismatch}{see Biostrings::pairwiseAlignment}
+\item{mismatch}{see pwalign::pairwiseAlignment}
 
-\item{gapOpening}{see Biostrings::pairwiseAlignment}
+\item{gapOpening}{see pwalign::pairwiseAlignment}
 
-\item{gapExtension}{see Biostrings::pairwiseAlignment}
+\item{gapExtension}{see pwalign::pairwiseAlignment}
 }
 \value{
 A dataframe containing the length of inexact homology between the 

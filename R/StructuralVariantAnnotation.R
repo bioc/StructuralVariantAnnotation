@@ -20,7 +20,8 @@
 #' @import BiocGenerics
 #' @import VariantAnnotation
 #' @import rtracklayer
-#' @import Biostrings
+#' @importFrom Biostrings DNAStringSet reverseComplement getSeq nchar subseq
+#' @importFrom pwalign pairwiseAlignment nindel insertion deletion nucleotideSubstitutionMatrix
 #' @import GenomicRanges
 #' @import GenomeInfoDb
 #' @import IRanges

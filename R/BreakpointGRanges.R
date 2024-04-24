@@ -413,10 +413,10 @@ extractReferenceSequence <- function(gr, ref, anchoredBases, followingBases=anch
 #' @param anchorLength Number of bases to consider for homology
 #' @param margin Number of additional reference bases include. This allows
 #'		for inexact homology to be detected even in the presence of indels.
-#' @param mismatch see Biostrings::pairwiseAlignment
-#' @param gapOpening see Biostrings::pairwiseAlignment
-#' @param gapExtension see Biostrings::pairwiseAlignment
-#' @param match see Biostrings::pairwiseAlignment
+#' @param mismatch see pwalign::pairwiseAlignment
+#' @param gapOpening see pwalign::pairwiseAlignment
+#' @param gapExtension see pwalign::pairwiseAlignment
+#' @param match see pwalign::pairwiseAlignment
 #' @return A dataframe containing the length of inexact homology between the 
 #' breakpoint sequence and the reference.
 #' @export
@@ -442,14 +442,14 @@ calculateReferenceHomology <- function(gr, ref,
 	partnerIndex <- match(gr$partner, names(gr))
 
 	if (all(refseq=="") && all(varseq=="")) {
-		# Workaround of Biostrings::pairwiseAlignment bug
+		# Workaround of pwalign::pairwiseAlignment bug
 		return(data.frame(
 			exacthomlen=rep(NA, length(gr)),
 			inexacthomlen=rep(NA, length(gr)),
 			inexactscore=rep(NA, length(gr))))
 	}
 
-	aln <- Biostrings::pairwiseAlignment(varseq, refseq, type="local",
+	aln <- pwalign::pairwiseAlignment(varseq, refseq, type="local",
 										 substitutionMatrix=nucleotideSubstitutionMatrix(match, mismatch, FALSE, "DNA"),
 										 gapOpening=gapOpening, gapExtension=gapExtension, scoreOnly=FALSE)
 	ihomlen <- Biostrings::nchar(aln) - aLength - deletion(nindel(aln))[,2] - insertion(nindel(aln))[,2]
@@ -459,7 +459,7 @@ calculateReferenceHomology <- function(gr, ref,
 	# TODO: replace this with an efficient longest common substring function
 	# instead of S/W with a massive mismatch/gap penalty
 	penalty <- anchorLength * match
-	matchLength <- Biostrings::pairwiseAlignment(varseq, refseq, type="local",
+	matchLength <- pwalign::pairwiseAlignment(varseq, refseq, type="local",
 												 substitutionMatrix=nucleotideSubstitutionMatrix(match, -penalty, FALSE, "DNA"),
 												 gapOpening=penalty, gapExtension=0, scoreOnly=TRUE) / match
 	ehomlen <- matchLength - aLength
